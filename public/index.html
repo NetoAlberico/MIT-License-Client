@@ -90,11 +90,15 @@
 <body>
 <div class="wrap">
   <div class="brand">
-    <div class="brand-mark"><img src="icons/icon-192.png" alt="MIT License"></div>
+    <span id="mitBrandLogoWrap" class="brand-mark" style="position:relative;">
+      <img id="mitBrandLogoImg" src="icons/icon-192.png" alt="Logo" hidden style="width:100%;height:100%;object-fit:cover;">
+      <span id="mitBrandLogoFallback" style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--muted-2);"></span>
+    </span>
     <div>
-      <div class="brand-name">MIT License</div>
-      <div class="brand-sub">Ministério Igreja da Torre</div>
+      <div class="brand-name" id="mitBrandName">MIT License</div>
+      <div class="brand-sub" id="mitBrandSub">Configure o nome da sua produtora ou empresa</div>
     </div>
+    <button type="button" onclick="MitBrand.open()" class="btn secondary small" style="margin-left:auto;">🏷️ Marca</button>
   </div>
   <p class="lede">Gere e gerencie os códigos de acesso das assinaturas dos seus clientes. O mesmo token funciona em qualquer app "MIT" que tenha o módulo <code>mit-license.js</code> instalado, desde que a chave secreta abaixo seja igual nos dois lugares.</p>
 
@@ -809,5 +813,6 @@
   renderHistory();
 })();
 </script>
+<script src="mit-brand.js" data-default-name="MIT License" data-default-sub="Configure o nome da sua produtora ou empresa" data-storage-key="mit_brand_admin"></script>
 </body>
 </html>
