@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Troque para o nome exato do seu Worker no painel da Cloudflare, se for
+  // diferente.
+  "name": "mit-license-client",
+  "compatibility_date": "2026-08-05",
+
+  // Só o painel admin (index.html = mit-license-admin.html renomeado) e os
+  // ícones — nada de código de servidor aqui, é só a ferramenta que você
+  // usa pra gerar tokens/contas. Nenhum arquivo aqui tem segredo nenhum
+  // (a SECRET e a ADMIN_KEY ficam só no seu navegador, no localStorage,
+  // nunca dentro dos arquivos).
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application"
+  }
+}
