@@ -598,13 +598,16 @@
     const rows = history.map((entry, idx) => {
       const st = statusFor(entry.end, entry.start);
       const devicesLabel = entry.maxDevices ? `até ${entry.maxDevices}` : '—';
+      const statusBadge = entry.revoked
+        ? `<span class="badge expired">Revogado</span>`
+        : `<span class="badge ${st.state}">${st.label}</span>`;
       return `
         <tr>
           <td>${escapeHtml(entry.cliente)}</td>
           <td>${escapeHtml(entry.appId)}</td>
           <td>${TYPE_LABEL[entry.type] || entry.type}</td>
           <td>${fmtBR(entry.start)} – ${fmtBR(entry.end)}</td>
-          <td><span class="badge ${st.state}">${st.label}</span></td>
+          <td>${statusBadge}</td>
           <td data-role="devices-cell" data-nonce="${escapeHtml(entry.nonce||'')}">${devicesLabel}</td>
           <td>
             <div class="row-actions">
@@ -612,6 +615,9 @@
               <button class="btn small secondary" data-action="check-devices" data-idx="${idx}">Ver dispositivos</button>
               <button class="btn small secondary" data-action="reset-devices" data-idx="${idx}">Resetar dispositivos</button>
               <button class="btn small secondary" data-action="renew" data-idx="${idx}">Renovar</button>
+              ${entry.revoked
+                ? `<button class="btn small secondary" data-action="unrevoke" data-idx="${idx}">Desfazer revogação</button>`
+                : `<button class="btn small danger" data-action="revoke" data-idx="${idx}">Revogar</button>`}
               <button class="btn small danger" data-action="remove" data-idx="${idx}">Remover</button>
             </div>
           </td>
@@ -636,6 +642,52 @@
       saveHistory(history);
       renderHistory();
       showToast('Removido do histórico (o token em si continua funcionando se alguém ainda o tiver).');
+    }));
+    wrap.querySelectorAll('[data-action="revoke"]').forEach(btn => btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.idx,10);
+      const entry = loadHistory()[idx];
+      if(!entry) return;
+      const serverUrl = licenseServerUrl();
+      const adminKey = licenseAdminKey();
+      if(!serverUrl || !adminKey){ showToast('Configure a URL do servidor de licenças e a chave de admin primeiro.'); return; }
+      if(!entry.nonce){ showToast('Esse token foi gerado antes desse recurso existir — gere um token novo pra poder revogar.'); return; }
+      if(!confirm(`Revogar o token de "${entry.cliente}"?\n\nO app dela vai bloquear na próxima checagem (até 1h depois, ou na hora se tentar ativar de novo) — mesmo que o token ainda não tivesse vencido pela data.`)) return;
+      try{
+        const res = await fetch(`${serverUrl}/tokens/revoke`, {
+          method: 'POST',
+          headers: licenseServerHeaders(),
+          body: JSON.stringify({ nonce: entry.nonce }),
+        });
+        const data = await res.json();
+        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível revogar.'); return; }
+        const history = loadHistory();
+        history[idx].revoked = true;
+        saveHistory(history);
+        renderHistory();
+        showToast('Token revogado.');
+      }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
+    }));
+    wrap.querySelectorAll('[data-action="unrevoke"]').forEach(btn => btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.idx,10);
+      const entry = loadHistory()[idx];
+      if(!entry) return;
+      const serverUrl = licenseServerUrl();
+      const adminKey = licenseAdminKey();
+      if(!serverUrl || !adminKey){ showToast('Configure a URL do servidor de licenças e a chave de admin primeiro.'); return; }
+      try{
+        const res = await fetch(`${serverUrl}/tokens/unrevoke`, {
+          method: 'POST',
+          headers: licenseServerHeaders(),
+          body: JSON.stringify({ nonce: entry.nonce }),
+        });
+        const data = await res.json();
+        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível desfazer.'); return; }
+        const history = loadHistory();
+        history[idx].revoked = false;
+        saveHistory(history);
+        renderHistory();
+        showToast('Revogação desfeita — o token volta a funcionar normalmente.');
+      }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
     }));
     wrap.querySelectorAll('[data-action="renew"]').forEach(btn => btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.idx,10);
