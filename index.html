@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MIT License · Gerador de Tokens</title>
+<link rel="icon" href="icons/icon-64.png">
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#15181c; --panel-2:#0f1114; --line:#262b31; --line-soft:#1d2126;
+    --text:#EDEBE2; --muted:#9aa0a8; --muted-2:#5c636b;
+    --accent:#4C8579; --accent-soft:rgba(76,133,121,0.16);
+    --warn:#e0b355; --warn-soft:rgba(224,179,85,0.14);
+    --danger:#e0796a; --danger-soft:rgba(224,121,106,0.14);
+    --radius:12px; --radius-sm:8px;
+    --mono:'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px;}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .brand-mark{width:40px;height:40px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--line);}
+  .brand-mark img{width:100%;height:100%;object-fit:contain;}
+  .brand-name{font-size:20px;font-weight:800;letter-spacing:-0.01em;color:var(--text);}
+  .brand-sub{font-size:11px;color:var(--muted-2);letter-spacing:.05em;text-transform:uppercase;margin-top:1px;}
+  .lede{color:var(--muted);font-size:13.5px;margin:6px 0 28px;line-height:1.6;max-width:640px;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px 22px;margin-bottom:22px;}
+  .card h2{font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 16px;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:7px;}
+  .field input[type=text], .field input[type=date], .field input[type=number], .field select{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:10px 12px;border-radius:var(--radius-sm);font-size:14px;outline:none;
+  }
+  .field input:focus, .field select:focus{border-color:var(--accent);}
+  .row{display:flex;gap:14px;flex-wrap:wrap;}
+  .row > .field{flex:1;min-width:160px;}
+
+  .period-types{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+  .period-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:10px 6px;
+    border-radius:var(--radius-sm);font-size:12.5px;font-weight:700;cursor:pointer;text-align:center;}
+  .period-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--text);}
+  @media (max-width:640px){.period-types{grid-template-columns:repeat(3,1fr);}}
+
+  .btn{background:var(--accent);color:#fff;border:none;padding:11px 18px;border-radius:var(--radius-sm);
+    font-size:13.5px;font-weight:700;cursor:pointer;}
+  .btn:hover{background:#59987f;}
+  .btn.secondary{background:var(--panel-2);color:var(--text);border:1px solid var(--line);}
+  .btn.secondary:hover{border-color:var(--muted-2);}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid rgba(224,121,106,0.35);}
+  .btn.danger:hover{background:var(--danger-soft);}
+  .btn.small{padding:6px 10px;font-size:12px;}
+
+  .result{display:none;margin-top:18px;background:var(--panel-2);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:16px;}
+  .result.show{display:block;}
+  .token-box{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:11px 12px;font-family:var(--mono);font-size:13px;word-break:break-all;color:var(--text);}
+  .token-box button{flex-shrink:0;}
+  .result-meta{color:var(--muted);font-size:12.5px;margin-top:10px;line-height:1.6;}
+  .result-meta b{color:var(--text);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+    padding:8px 10px;border-bottom:1px solid var(--line);}
+  td{padding:10px 10px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .badge{display:inline-block;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700;}
+  .badge.valid{background:var(--accent-soft);color:#9fd7c8;}
+  .badge.warning{background:var(--warn-soft);color:var(--warn);}
+  .badge.expired{background:var(--danger-soft);color:var(--danger);}
+  .badge.not-started{background:rgba(255,255,255,0.08);color:var(--muted);}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .empty{color:var(--muted-2);font-size:13px;padding:18px 4px;text-align:center;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .toolbar .actions{display:flex;gap:8px;}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);
+    padding:10px 18px;border-radius:99px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;
+    transition:opacity .2s, transform .2s;z-index:999;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  .hint{color:var(--muted-2);font-size:12px;margin-top:8px;line-height:1.5;}
+  .secret-row{display:flex;gap:8px;align-items:flex-end;}
+  .secret-row .field{flex:1;margin-bottom:0;}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-mark"><img src="icons/icon-192.png" alt="MIT License"></div>
+    <div>
+      <div class="brand-name">MIT License</div>
+      <div class="brand-sub">Ministério Igreja da Torre</div>
+    </div>
+  </div>
+  <p class="lede">Gere e gerencie os códigos de acesso das assinaturas dos seus clientes. O mesmo token funciona em qualquer app "MIT" que tenha o módulo <code>mit-license.js</code> instalado, desde que a chave secreta abaixo seja igual nos dois lugares.</p>
+
+  <div class="card">
+    <h2>Chave secreta</h2>
+    <div class="secret-row">
+      <div class="field">
+        <label>Chave usada para assinar os tokens</label>
+        <input type="text" id="secretInput" />
+      </div>
+      <button class="btn secondary" id="saveSecretBtn">Salvar chave</button>
+    </div>
+    <p class="hint">Essa chave precisa ser exatamente igual à <code>CONFIG.SECRET</code> dentro do arquivo <code>mit-license.js</code> de cada app. Troque o valor padrão por algo só seu e guarde em local seguro — quem tiver a chave consegue gerar tokens válidos.</p>
+  </div>
+
+  <div class="card">
+    <h2>Limite de dispositivos</h2>
+    <div class="secret-row">
+      <div class="field">
+        <label>URL do servidor de licenças (license-server)</label>
+        <input type="text" id="licenseServerInput" placeholder="https://mit-license-server.seunome.workers.dev" />
+      </div>
+      <div class="field">
+        <label>Chave de admin (ADMIN_KEY)</label>
+        <input type="text" id="adminKeyInput" placeholder="mesma ADMIN_KEY do license-server" />
+      </div>
+      <button class="btn secondary" id="saveLicenseServerBtn">Salvar</button>
+    </div>
+    <p class="hint">Preencha só se for usar o limite de "Dispositivos permitidos" ao gerar tokens — sem isso, o campo existe mas não é aplicado de verdade. Veja como publicar o <code>license-server</code> no <code>INTEGRACAO-LICENCA.md</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2>Gerar novo token</h2>
+    <div class="row">
+      <div class="field">
+        <label>Cliente</label>
+        <input type="text" id="clientInput" placeholder="Nome do cliente ou identificação" />
+      </div>
+      <div class="field">
+        <label>App vinculado</label>
+        <select id="appSelect">
+          <option value="any">Qualquer app MIT</option>
+          <option value="repertorio">Repertório</option>
+          <option value="cifras">Cifras</option>
+          <option value="vs">Vs</option>
+        </select>
+      </div>
+    </div>
+
+    <label style="display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px;">Período</label>
+    <div class="period-types">
+      <div class="period-btn active" data-type="Q">Quinzenal<br><span style="font-weight:400;opacity:.7">15 dias</span></div>
+      <div class="period-btn" data-type="M">Mensal<br><span style="font-weight:400;opacity:.7">30 dias</span></div>
+      <div class="period-btn" data-type="A">Anual<br><span style="font-weight:400;opacity:.7">365 dias</span></div>
+      <div class="period-btn" data-type="D">Por dias<br><span style="font-weight:400;opacity:.7">personalizado</span></div>
+      <div class="period-btn" data-type="P">Por período<br><span style="font-weight:400;opacity:.7">datas exatas</span></div>
+    </div>
+
+    <div class="row" id="startRow">
+      <div class="field">
+        <label>Início</label>
+        <input type="date" id="startInput" />
+      </div>
+      <div class="field" id="daysField" style="display:none;">
+        <label>Quantidade de dias</label>
+        <input type="number" id="daysInput" min="1" value="30" />
+      </div>
+      <div class="field" id="endField" style="display:none;">
+        <label>Fim</label>
+        <input type="date" id="endInput" />
+      </div>
+      <div class="field">
+        <label>Dispositivos permitidos</label>
+        <input type="number" id="maxDevicesInput" min="1" value="1" />
+      </div>
+    </div>
+    <p class="hint">Esse número trava quantos aparelhos diferentes conseguem ativar esse mesmo token — no aparelho de número <b>dispositivos+1</b>, o token é recusado. Precisa do servidor de rastreio de dispositivos publicado e configurado (veja "Limite de dispositivos" mais abaixo) — sem ele, o limite não é aplicado.</p>
+
+    <button class="btn" id="generateBtn">Gerar token</button>
+
+    <div class="result" id="result">
+      <div class="token-box">
+        <span id="tokenText" style="flex:1;"></span>
+        <button class="btn small secondary" id="copyBtn">Copiar</button>
+      </div>
+      <div class="result-meta" id="resultMeta"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Criar conta de usuário (usuário + senha)</h2>
+    <p class="hint" style="margin-top:-6px;">Em vez de um token pra colar, gera um usuário e senha pra pessoa digitar no app. Precisa do <code>license-server</code> publicado e configurado acima — sem ele, este cartão não funciona (o token direto continua funcionando normalmente sem servidor nenhum).</p>
+    <div class="row">
+      <div class="field">
+        <label>Cliente</label>
+        <input type="text" id="accClientInput" placeholder="Nome do cliente ou identificação" />
+      </div>
+      <div class="field">
+        <label>App vinculado</label>
+        <select id="accAppSelect">
+          <option value="any">Qualquer app MIT</option>
+          <option value="repertorio">Repertório</option>
+          <option value="cifras">Cifras</option>
+          <option value="vs">Vs</option>
+        </select>
+      </div>
+    </div>
+
+    <label style="display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px;">Período</label>
+    <div class="period-types" id="accPeriodTypes">
+      <div class="period-btn active" data-type="Q">Quinzenal<br><span style="font-weight:400;opacity:.7">15 dias</span></div>
+      <div class="period-btn" data-type="M">Mensal<br><span style="font-weight:400;opacity:.7">30 dias</span></div>
+      <div class="period-btn" data-type="A">Anual<br><span style="font-weight:400;opacity:.7">365 dias</span></div>
+      <div class="period-btn" data-type="D">Por dias<br><span style="font-weight:400;opacity:.7">personalizado</span></div>
+      <div class="period-btn" data-type="P">Por período<br><span style="font-weight:400;opacity:.7">datas exatas</span></div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Início</label>
+        <input type="date" id="accStartInput" />
+      </div>
+      <div class="field" id="accDaysField" style="display:none;">
+        <label>Quantidade de dias</label>
+        <input type="number" id="accDaysInput" min="1" value="30" />
+      </div>
+      <div class="field" id="accEndField" style="display:none;">
+        <label>Fim</label>
+        <input type="date" id="accEndInput" />
+      </div>
+      <div class="field">
+        <label>Dispositivos permitidos</label>
+        <input type="number" id="accMaxDevicesInput" min="1" value="1" />
+      </div>
+    </div>
+
+    <button class="btn" id="createAccountBtn">Criar conta</button>
+
+    <div class="result" id="accountResult">
+      <div class="token-box">
+        <span id="accountCredsText" style="flex:1;"></span>
+        <button class="btn small secondary" id="copyAccountBtn">Copiar</button>
+      </div>
+      <div class="result-meta" id="accountResultMeta"></div>
+    </div>
+
+    <div class="toolbar" style="margin-top:22px;">
+      <h2 style="margin:0;font-size:13px;">Contas existentes</h2>
+      <button class="btn secondary small" id="refreshUsersBtn">Atualizar lista</button>
+    </div>
+    <div id="usersTableWrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;">Assinaturas geradas</h2>
+      <div class="actions">
+        <button class="btn secondary small" id="exportBtn">Exportar backup</button>
+        <button class="btn secondary small" id="importBtn">Importar backup</button>
+        <input type="file" id="importFile" accept="application/json" />
+      </div>
+    </div>
+    <div id="tableWrap"></div>
+    <p class="hint">Este histórico fica salvo só neste navegador — serve para você acompanhar quem já recebeu token e quando vence. Excluir um item daqui <b>não invalida</b> o token (não existe servidor central); se precisar cortar o acesso de alguém antes do prazo, a única forma é trocar a chave secreta (o que invalida todos os tokens já emitidos).</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const DEFAULT_SECRET = "Torre-MIT-2026-3f8a1c9d-mit";
+  const SECRET_STORAGE_KEY = "mit_admin_secret";
+  const HISTORY_STORAGE_KEY = "mit_admin_token_history";
+
+  const secretInput = document.getElementById("secretInput");
+  secretInput.value = localStorage.getItem(SECRET_STORAGE_KEY) || DEFAULT_SECRET;
+  document.getElementById("saveSecretBtn").addEventListener("click", () => {
+    localStorage.setItem(SECRET_STORAGE_KEY, secretInput.value.trim() || DEFAULT_SECRET);
+    showToast("Chave salva neste navegador.");
+  });
+  function currentSecret(){ return secretInput.value.trim() || DEFAULT_SECRET; }
+
+  const LICENSE_SERVER_KEY = "mit_admin_license_server_url";
+  const ADMIN_KEY_KEY = "mit_admin_license_admin_key";
+  const licenseServerInput = document.getElementById("licenseServerInput");
+  const adminKeyInput = document.getElementById("adminKeyInput");
+  licenseServerInput.value = localStorage.getItem(LICENSE_SERVER_KEY) || "";
+  adminKeyInput.value = localStorage.getItem(ADMIN_KEY_KEY) || "";
+  document.getElementById("saveLicenseServerBtn").addEventListener("click", () => {
+    localStorage.setItem(LICENSE_SERVER_KEY, licenseServerInput.value.trim().replace(/\/+$/, ""));
+    localStorage.setItem(ADMIN_KEY_KEY, adminKeyInput.value.trim());
+    showToast("Configuração do servidor de licenças salva.");
+  });
+  function licenseServerUrl(){ return localStorage.getItem(LICENSE_SERVER_KEY) || ""; }
+  function licenseAdminKey(){ return localStorage.getItem(ADMIN_KEY_KEY) || ""; }
+
+  /* ---------------------------- criptografia (mesma lógica do mit-license.js) --------------------------- */
+  function strToB64url(str){
+    const utf8 = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode('0x' + p1));
+    return btoa(utf8).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function bytesToHex(bytes){
+    return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  async function hmacHex(message, secret){
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(secret), {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+    return bytesToHex(new Uint8Array(sig).slice(0,12));
+  }
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+  function addDays(iso, n){
+    const d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  }
+  function fmtBR(iso){ const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+  const TYPE_LABEL = { Q:'Quinzenal (15 dias)', M:'Mensal (30 dias)', A:'Anual (365 dias)', D:'Por dias', P:'Por período' };
+  const TYPE_DAYS = { Q:15, M:30, A:365 };
+
+  async function buildToken({ cliente, appId, type, start, end, maxDevices }){
+    const nonce = Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+    // Versão 2 do payload: acrescenta o limite de dispositivos no final. O
+    // mit-license.js (nos apps) e o license-server (servidor de rastreio)
+    // tratam tokens antigos (versão 1, sem esse campo) como "sem limite".
+    const payloadStr = `2|${encodeURIComponent(cliente)}|${appId}|${type}|${start}|${end}|${nonce}|${maxDevices || 0}`;
+    const sig = await hmacHex(payloadStr, currentSecret());
+    return { token: `MIT-${strToB64url(payloadStr)}.${sig}`, nonce };
+  }
+
+  function statusFor(end, start){
+    const today = todayStr();
+    if(today < start) return { state:'not-started', label:'Ainda não iniciou' };
+    if(today > end) return { state:'expired', label:'Expirado' };
+    const daysLeft = Math.round((new Date(end+'T00:00:00') - new Date(today+'T00:00:00')) / 86400000);
+    if(daysLeft <= 5) return { state:'warning', label:`Vence em ${daysLeft} dia${daysLeft===1?'':'s'}` };
+    return { state:'valid', label:`Ativo (${daysLeft} dias restantes)` };
+  }
+
+  /* ------------------------------------- form de geração ------------------------------------- */
+  const appSelect = document.getElementById('appSelect');
+
+  let selectedType = 'Q';
+  const periodBtns = document.querySelectorAll('.period-btn');
+  const daysField = document.getElementById('daysField');
+  const endField = document.getElementById('endField');
+  const startInput = document.getElementById('startInput');
+  const daysInput = document.getElementById('daysInput');
+  const endInput = document.getElementById('endInput');
+  const maxDevicesInput = document.getElementById('maxDevicesInput');
+  startInput.value = todayStr();
+
+  function refreshPeriodUI(){
+    periodBtns.forEach(b => b.classList.toggle('active', b.dataset.type === selectedType));
+    daysField.style.display = selectedType === 'D' ? 'block' : 'none';
+    endField.style.display = selectedType === 'P' ? 'block' : 'none';
+  }
+  periodBtns.forEach(btn => btn.addEventListener('click', () => {
+    selectedType = btn.dataset.type;
+    refreshPeriodUI();
+  }));
+  refreshPeriodUI();
+
+  function computeRange(){
+    const start = startInput.value || todayStr();
+    if(selectedType === 'P'){
+      const end = endInput.value;
+      if(!end) return null;
+      return { start, end };
+    }
+    if(selectedType === 'D'){
+      const n = parseInt(daysInput.value, 10);
+      if(!n || n < 1) return null;
+      return { start, end: addDays(start, n - 1) };
+    }
+    return { start, end: addDays(start, TYPE_DAYS[selectedType] - 1) };
+  }
+
+  document.getElementById('generateBtn').addEventListener('click', async () => {
+    const cliente = document.getElementById('clientInput').value.trim();
+    if(!cliente){ showToast('Informe o nome do cliente.'); return; }
+    const appId = appSelect.value;
+    const range = computeRange();
+    if(!range){ showToast('Confira as datas do período.'); return; }
+    if(range.end < range.start){ showToast('A data final precisa ser depois do início.'); return; }
+    const maxDevices = parseInt(maxDevicesInput.value, 10);
+    if(!maxDevices || maxDevices < 1){ showToast('Informe quantos dispositivos esse token pode usar (mínimo 1).'); return; }
+
+    const { token, nonce } = await buildToken({ cliente, appId, type: selectedType, start: range.start, end: range.end, maxDevices });
+
+    const entry = { cliente, appId, type: selectedType, start: range.start, end: range.end, maxDevices, token, nonce, createdAt: new Date().toISOString() };
+    const history = loadHistory();
+    history.unshift(entry);
+    saveHistory(history);
+    renderHistory();
+
+    document.getElementById('tokenText').textContent = token;
+    document.getElementById('resultMeta').innerHTML = `
+      <b>${escapeHtml(cliente)}</b> · app: <b>${escapeHtml(appId)}</b> · ${TYPE_LABEL[selectedType]} · até ${maxDevices} dispositivo${maxDevices===1?'':'s'}<br>
+      Vigência: <b>${fmtBR(range.start)}</b> até <b>${fmtBR(range.end)}</b>
+    `;
+    document.getElementById('result').classList.add('show');
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    const text = document.getElementById('tokenText').textContent;
+    copyToClipboard(text);
+  });
+
+  /* ------------------------------------- contas de usuário ------------------------------------- */
+  let accSelectedType = 'Q';
+  const accPeriodBtns = document.querySelectorAll('#accPeriodTypes .period-btn');
+  const accDaysField = document.getElementById('accDaysField');
+  const accEndField = document.getElementById('accEndField');
+  const accStartInput = document.getElementById('accStartInput');
+  const accDaysInput = document.getElementById('accDaysInput');
+  const accEndInput = document.getElementById('accEndInput');
+  const accMaxDevicesInput = document.getElementById('accMaxDevicesInput');
+  accStartInput.value = todayStr();
+
+  function refreshAccPeriodUI(){
+    accPeriodBtns.forEach(b => b.classList.toggle('active', b.dataset.type === accSelectedType));
+    accDaysField.style.display = accSelectedType === 'D' ? 'block' : 'none';
+    accEndField.style.display = accSelectedType === 'P' ? 'block' : 'none';
+  }
+  accPeriodBtns.forEach(btn => btn.addEventListener('click', () => {
+    accSelectedType = btn.dataset.type;
+    refreshAccPeriodUI();
+  }));
+  refreshAccPeriodUI();
+
+  function computeAccRange(){
+    const start = accStartInput.value || todayStr();
+    if(accSelectedType === 'P'){
+      const end = accEndInput.value;
+      if(!end) return null;
+      return { start, end };
+    }
+    if(accSelectedType === 'D'){
+      const n = parseInt(accDaysInput.value, 10);
+      if(!n || n < 1) return null;
+      return { start, end: addDays(start, n - 1) };
+    }
+    return { start, end: addDays(start, TYPE_DAYS[accSelectedType] - 1) };
+  }
+
+  function licenseServerHeaders(){
+    return { 'Content-Type': 'application/json', 'x-admin-key': licenseAdminKey() };
+  }
+
+  document.getElementById('createAccountBtn').addEventListener('click', async () => {
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    if(!serverUrl || !adminKey){ showToast('Configure a URL do servidor de licenças e a chave de admin primeiro (cartão "Limite de dispositivos").'); return; }
+
+    const cliente = document.getElementById('accClientInput').value.trim();
+    if(!cliente){ showToast('Informe o nome do cliente.'); return; }
+    const appId = document.getElementById('accAppSelect').value;
+    const range = computeAccRange();
+    if(!range){ showToast('Confira as datas do período.'); return; }
+    if(range.end < range.start){ showToast('A data final precisa ser depois do início.'); return; }
+    const maxDevices = parseInt(accMaxDevicesInput.value, 10);
+    if(!maxDevices || maxDevices < 1){ showToast('Informe quantos dispositivos essa conta pode usar (mínimo 1).'); return; }
+
+    const btn = document.getElementById('createAccountBtn');
+    btn.disabled = true; btn.textContent = 'Criando…';
+    try{
+      const res = await fetch(`${serverUrl}/users`, {
+        method: 'POST',
+        headers: licenseServerHeaders(),
+        body: JSON.stringify({ cliente, appId, type: accSelectedType, start: range.start, end: range.end, maxDevices }),
+      });
+      const data = await res.json();
+      if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível criar a conta.'); return; }
+
+      const credsMsg = `Usuário: ${data.username}\nSenha: ${data.password}`;
+      document.getElementById('accountCredsText').textContent = credsMsg;
+      document.getElementById('accountResultMeta').innerHTML = `
+        <b>${escapeHtml(cliente)}</b> · app: <b>${escapeHtml(appId)}</b> · ${TYPE_LABEL[accSelectedType]} · até ${maxDevices} dispositivo${maxDevices===1?'':'s'}<br>
+        Vigência: <b>${fmtBR(range.start)}</b> até <b>${fmtBR(range.end)}</b><br>
+        <span style="color:var(--danger);">A senha só aparece esta vez — copie e envie agora.</span>
+      `;
+      document.getElementById('accountResult').classList.add('show');
+      document.getElementById('accClientInput').value = '';
+      loadUsersList();
+    }catch(err){
+      showToast('Erro ao contatar o servidor de licenças.');
+    }finally{
+      btn.disabled = false; btn.textContent = 'Criar conta';
+    }
+  });
+
+  document.getElementById('copyAccountBtn').addEventListener('click', () => {
+    copyToClipboard(document.getElementById('accountCredsText').textContent);
+  });
+
+  document.getElementById('refreshUsersBtn').addEventListener('click', loadUsersList);
+
+  async function loadUsersList(){
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    const wrap = document.getElementById('usersTableWrap');
+    if(!serverUrl || !adminKey){
+      wrap.innerHTML = `<div class="empty">Configure o servidor de licenças acima pra ver as contas.</div>`;
+      return;
+    }
+    wrap.innerHTML = `<div class="empty">Carregando…</div>`;
+    try{
+      const res = await fetch(`${serverUrl}/users`, { headers: { 'x-admin-key': adminKey } });
+      const data = await res.json();
+      if(!res.ok || !data.ok){ wrap.innerHTML = `<div class="empty">${escapeHtml(data.error || 'Não foi possível carregar as contas.')}</div>`; return; }
+      renderUsersTable(data.users || []);
+    }catch(err){
+      wrap.innerHTML = `<div class="empty">Erro ao contatar o servidor de licenças.</div>`;
+    }
+  }
+
+  function renderUsersTable(users){
+    const wrap = document.getElementById('usersTableWrap');
+    if(!users.length){ wrap.innerHTML = `<div class="empty">Nenhuma conta criada ainda.</div>`; return; }
+    const rows = users.map(u => {
+      const st = statusFor(u.end, u.start);
+      const devicesLabel = u.maxDevices ? `${u.devicesUsed||0} de ${u.maxDevices}` : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(u.cliente)}</td>
+          <td>${escapeHtml(u.username)}</td>
+          <td>${escapeHtml(u.appId)}</td>
+          <td>${fmtBR(u.start)} – ${fmtBR(u.end)}</td>
+          <td><span class="badge ${u.active===false ? 'expired' : st.state}">${u.active===false ? 'Revogada' : st.label}</span></td>
+          <td>${devicesLabel}</td>
+          <td>
+            <div class="row-actions">
+              <button class="btn small secondary" data-action="reset-user-devices" data-username="${escapeHtml(u.username)}">Resetar dispositivos</button>
+              <button class="btn small danger" data-action="revoke-user" data-username="${escapeHtml(u.username)}">Revogar</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Cliente</th><th>Usuário</th><th>App</th><th>Vigência</th><th>Status</th><th>Dispositivos</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+    wrap.querySelectorAll('[data-action="revoke-user"]').forEach(btn => btn.addEventListener('click', async () => {
+      const username = btn.dataset.username;
+      if(!confirm(`Revogar o acesso de "${username}"?\n\nA pessoa não vai mais conseguir entrar (mesmo com a senha certa), e o app dela vai bloquear na próxima checagem — mesmo se o token guardado no aparelho ainda não tivesse vencido.`)) return;
+      const serverUrl = licenseServerUrl();
+      try{
+        const res = await fetch(`${serverUrl}/users?username=${encodeURIComponent(username)}`, {
+          method: 'DELETE',
+          headers: { 'x-admin-key': licenseAdminKey() },
+        });
+        const data = await res.json();
+        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível revogar.'); return; }
+        showToast(`Conta de "${username}" revogada.`);
+        loadUsersList();
+      }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
+    }));
+    wrap.querySelectorAll('[data-action="reset-user-devices"]').forEach(btn => btn.addEventListener('click', async () => {
+      const username = btn.dataset.username;
+      const serverUrl = licenseServerUrl();
+      try{
+        const res = await fetch(`${serverUrl}/users/reset-devices`, {
+          method: 'POST',
+          headers: licenseServerHeaders(),
+          body: JSON.stringify({ username }),
+        });
+        const data = await res.json();
+        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível resetar.'); return; }
+        showToast(`Dispositivos de "${username}" resetados.`);
+        loadUsersList();
+      }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
+    }));
+  }
+
+  // Carrega a lista de contas assim que a página abre, se já tiver servidor configurado.
+  loadUsersList();
+
+  /* ------------------------------------- histórico / gerenciamento ------------------------------------- */
+  function loadHistory(){
+    try{ return JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]'); }
+    catch(err){ return []; }
+  }
+  function saveHistory(list){
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(list));
+  }
+
+  function renderHistory(){
+    const history = loadHistory();
+    const wrap = document.getElementById('tableWrap');
+    if(history.length === 0){
+      wrap.innerHTML = `<div class="empty">Nenhum token gerado ainda.</div>`;
+      return;
+    }
+    const rows = history.map((entry, idx) => {
+      const st = statusFor(entry.end, entry.start);
+      const devicesLabel = entry.maxDevices ? `até ${entry.maxDevices}` : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(entry.cliente)}</td>
+          <td>${escapeHtml(entry.appId)}</td>
+          <td>${TYPE_LABEL[entry.type] || entry.type}</td>
+          <td>${fmtBR(entry.start)} – ${fmtBR(entry.end)}</td>
+          <td><span class="badge ${st.state}">${st.label}</span></td>
+          <td data-role="devices-cell" data-nonce="${escapeHtml(entry.nonce||'')}">${devicesLabel}</td>
+          <td>
+            <div class="row-actions">
+              <button class="btn small secondary" data-action="copy" data-idx="${idx}">Copiar</button>
+              <button class="btn small secondary" data-action="check-devices" data-idx="${idx}">Ver dispositivos</button>
+              <button class="btn small secondary" data-action="reset-devices" data-idx="${idx}">Resetar dispositivos</button>
+              <button class="btn small secondary" data-action="renew" data-idx="${idx}">Renovar</button>
+              <button class="btn small danger" data-action="remove" data-idx="${idx}">Remover</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Cliente</th><th>App</th><th>Tipo</th><th>Vigência</th><th>Status</th><th>Dispositivos</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+
+    wrap.querySelectorAll('[data-action="copy"]').forEach(btn => btn.addEventListener('click', () => {
+      const entry = loadHistory()[parseInt(btn.dataset.idx,10)];
+      if(entry) copyToClipboard(entry.token);
+    }));
+    wrap.querySelectorAll('[data-action="remove"]').forEach(btn => btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx,10);
+      const history = loadHistory();
+      history.splice(idx,1);
+      saveHistory(history);
+      renderHistory();
+      showToast('Removido do histórico (o token em si continua funcionando se alguém ainda o tiver).');
+    }));
+    wrap.querySelectorAll('[data-action="renew"]').forEach(btn => btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.idx,10);
+      const entry = loadHistory()[idx];
+      if(!entry) return;
+      const extendFromToday = confirm('Renovar a partir de hoje?\n\nOK = a partir de hoje\nCancelar = a partir do vencimento atual (sem sobrepor dias)');
+      const start = extendFromToday ? todayStr() : addDays(entry.end, 1);
+      const days = entry.type === 'D' ? Math.round((new Date(entry.end) - new Date(entry.start))/86400000) + 1 : (TYPE_DAYS[entry.type] || 30);
+      const end = entry.type === 'P' ? start : addDays(start, days - 1);
+      const maxDevices = entry.maxDevices || 1;
+      const { token, nonce } = await buildToken({ cliente: entry.cliente, appId: entry.appId, type: entry.type, start, end, maxDevices });
+      const newEntry = { cliente: entry.cliente, appId: entry.appId, type: entry.type, start, end, maxDevices, token, nonce, createdAt: new Date().toISOString() };
+      const history = loadHistory();
+      history.unshift(newEntry);
+      saveHistory(history);
+      renderHistory();
+      copyToClipboard(token);
+      showToast('Novo token gerado e copiado — o limite de dispositivos é zerado (é um token novo).');
+    }));
+    wrap.querySelectorAll('[data-action="check-devices"]').forEach(btn => btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.idx,10);
+      const entry = loadHistory()[idx];
+      if(!entry) return;
+      await checkDevices(entry, wrap);
+    }));
+    wrap.querySelectorAll('[data-action="reset-devices"]').forEach(btn => btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.idx,10);
+      const entry = loadHistory()[idx];
+      if(!entry) return;
+      if(!confirm(`Resetar os dispositivos de "${entry.cliente}"?\n\nO token continua o mesmo, mas a contagem de aparelhos volta a zero — o próximo aparelho a usar esse token (mesmo um que já tinha usado antes) conta como o primeiro de novo.`)) return;
+      await resetDevices(entry, wrap);
+    }));
+  }
+
+  async function checkDevices(entry, wrap){
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    if(!serverUrl || !adminKey){ showToast('Configure a URL do servidor de licenças e a chave de admin primeiro.'); return; }
+    if(!entry.nonce){ showToast('Esse token foi gerado antes desse recurso existir — gere um token novo pra poder rastrear.'); return; }
+    try{
+      const res = await fetch(`${serverUrl}/devices?nonce=${encodeURIComponent(entry.nonce)}`, {
+        headers: { 'x-admin-key': adminKey },
+      });
+      const data = await res.json();
+      if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível consultar os dispositivos.'); return; }
+      const cell = wrap.querySelector(`[data-nonce="${entry.nonce}"]`);
+      if(cell) cell.textContent = `${data.devicesUsed} de ${entry.maxDevices || '∞'}`;
+      showToast(`${entry.cliente}: ${data.devicesUsed} dispositivo(s) ativado(s).`);
+    }catch(err){
+      showToast('Erro ao consultar o servidor de licenças.');
+    }
+  }
+  async function resetDevices(entry, wrap){
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    if(!serverUrl || !adminKey){ showToast('Configure a URL do servidor de licenças e a chave de admin primeiro.'); return; }
+    if(!entry.nonce){ showToast('Esse token foi gerado antes desse recurso existir.'); return; }
+    try{
+      const res = await fetch(`${serverUrl}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+        body: JSON.stringify({ nonce: entry.nonce }),
+      });
+      const data = await res.json();
+      if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível resetar.'); return; }
+      const cell = wrap.querySelector(`[data-nonce="${entry.nonce}"]`);
+      if(cell) cell.textContent = entry.maxDevices ? `até ${entry.maxDevices}` : '—';
+      showToast('Dispositivos resetados — a contagem voltou a zero.');
+    }catch(err){
+      showToast('Erro ao contatar o servidor de licenças.');
+    }
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(loadHistory(), null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `mit-tokens-backup-${todayStr()}.json`;
+    a.click();
+  });
+  document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const imported = JSON.parse(reader.result);
+        if(!Array.isArray(imported)) throw new Error('formato inválido');
+        const current = loadHistory();
+        const merged = imported.concat(current);
+        saveHistory(merged);
+        renderHistory();
+        showToast('Backup importado.');
+      }catch(err){
+        showToast('Esse arquivo não parece um backup válido.');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  /* ------------------------------------- utilidades ------------------------------------- */
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function copyToClipboard(text){
+    navigator.clipboard?.writeText(text).then(() => showToast('Token copiado.'))
+      .catch(() => showToast('Não foi possível copiar automaticamente.'));
+  }
+  let toastTimer = null;
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  renderHistory();
+})();
+</script>
+</body>
+</html>
