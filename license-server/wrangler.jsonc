@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mit-license",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-08-04",
+
+  // Namespace do KV (banco de chave-valor da Cloudflare) onde ficam salvos
+  // os dispositivos que já ativaram cada token/conta. Crie com:
+  //   npx wrangler kv namespace create ACTIVATIONS
+  // e troque o "id" abaixo pelo que o comando devolver.
+  //
+  // O namespace USERS guarda as contas de usuário (usuário + senha com
+  // hash) — só é necessário se for usar o login por usuário/senha (em vez
+  // de só token). Crie com:
+  //   npx wrangler kv namespace create USERS
+  "kv_namespaces": [
+    { "binding": "ACTIVATIONS", "id": "2b6b939875744a9b80c6ef150850a1a3" },
+    { "binding": "USERS", "id": "73667f5fc3ab4f5db34641ee0a29c193" }
+  ]
+}
