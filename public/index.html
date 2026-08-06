@@ -247,8 +247,19 @@
 
     <div class="toolbar" style="margin-top:22px;">
       <h2 style="margin:0;font-size:13px;">Contas existentes</h2>
-      <button class="btn secondary small" id="refreshUsersBtn">Atualizar lista</button>
+      <div class="actions">
+        <button class="btn secondary small" id="refreshUsersBtn">Atualizar lista</button>
+        <button class="btn secondary small" id="exportUsersBtn">Exportar contas</button>
+        <button class="btn secondary small" id="importUsersBtn">Importar contas</button>
+        <input type="file" id="importUsersFile" accept="application/json" />
+      </div>
     </div>
+    <p class="hint" style="margin-top:-4px;">
+      "Exportar contas" baixa a lista atual (cliente, app, vigência, usuário) direto do servidor de licenças.
+      O servidor nunca devolve senhas depois de criadas, então "Importar contas" não restaura contas antigas —
+      ele <b>cria contas novas</b> (com senha nova) para cada linha do arquivo, útil se o banco de dados do
+      servidor foi perdido e você precisa recriar o acesso dos mesmos clientes rapidamente.
+    </p>
     <div id="usersTableWrap"></div>
   </div>
 
@@ -579,6 +590,80 @@
       }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
     }));
   }
+
+  document.getElementById('exportUsersBtn').addEventListener('click', async () => {
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    if(!serverUrl || !adminKey){ showToast('Configure o servidor de licenças acima antes de exportar.'); return; }
+    try{
+      const res = await fetch(`${serverUrl}/users`, { headers: { 'x-admin-key': adminKey } });
+      const data = await res.json();
+      if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível exportar as contas.'); return; }
+      const blob = new Blob([JSON.stringify(data.users || [], null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `mit-contas-backup-${todayStr()}.json`;
+      a.click();
+      showToast(`${(data.users||[]).length} conta(s) exportada(s). Lembrando: sem senhas — o servidor não as devolve.`);
+    }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
+  });
+
+  document.getElementById('importUsersBtn').addEventListener('click', () => document.getElementById('importUsersFile').click());
+  document.getElementById('importUsersFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      let imported;
+      try{
+        imported = JSON.parse(reader.result);
+        if(!Array.isArray(imported)) throw new Error('formato inválido');
+      }catch(err){
+        showToast('Esse arquivo não parece um backup de contas válido.');
+        e.target.value = '';
+        return;
+      }
+      const serverUrl = licenseServerUrl();
+      const adminKey = licenseAdminKey();
+      if(!serverUrl || !adminKey){ showToast('Configure o servidor de licenças acima antes de importar.'); e.target.value = ''; return; }
+      if(!imported.length){ showToast('O arquivo não tem nenhuma conta.'); e.target.value = ''; return; }
+      if(!confirm(`Isso vai CRIAR ${imported.length} conta(s) nova(s) no servidor (uma pra cada linha do arquivo), cada uma com usuário e senha novos — não restaura as senhas antigas, porque o servidor nunca as guarda depois de criadas. Continuar?`)){
+        e.target.value = '';
+        return;
+      }
+      const created = [];
+      const failed = [];
+      for(const u of imported){
+        if(!u || !u.cliente || !u.appId || !u.start || !u.end){ failed.push(u && u.cliente || '(linha inválida)'); continue; }
+        try{
+          const res = await fetch(`${serverUrl}/users`, {
+            method: 'POST',
+            headers: licenseServerHeaders(),
+            body: JSON.stringify({
+              cliente: u.cliente, appId: u.appId, type: 'P',
+              start: u.start, end: u.end, maxDevices: u.maxDevices || 1,
+            }),
+          });
+          const data = await res.json();
+          if(!res.ok || !data.ok){ failed.push(u.cliente); continue; }
+          created.push({ cliente: u.cliente, appId: u.appId, username: data.username, password: data.password });
+        }catch(err){ failed.push(u.cliente); }
+      }
+      e.target.value = '';
+      loadUsersList();
+      if(created.length){
+        const blob = new Blob([JSON.stringify(created, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `mit-contas-credenciais-novas-${todayStr()}.json`;
+        a.click();
+      }
+      const msg = `${created.length} conta(s) criada(s).` + (failed.length ? ` ${failed.length} falharam.` : '') +
+        (created.length ? ' As credenciais novas foram baixadas em um arquivo — copie e envie para cada cliente, a senha não aparece de novo.' : '');
+      showToast(msg);
+    };
+    reader.readAsText(file);
+  });
 
   // Carrega a lista de contas assim que a página abre, se já tiver servidor configurado.
   loadUsersList();
