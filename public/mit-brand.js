@@ -164,7 +164,7 @@
     close();
   }
 
-  window.MitBrand = { open: open, close: close, save: save, reset: reset };
+  window.MitBrand = { open: open, close: close, save: save, reset: reset, render: renderBrand };
 
   function init() {
     injectStyles();
