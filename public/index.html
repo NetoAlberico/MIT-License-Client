@@ -415,6 +415,14 @@
     saveHistory(history);
     renderHistory();
 
+    // Salva os metadados no banco também (não o token em si, só cliente/
+    // app/período/nonce) — é isso que faz esse "cliente" aparecer na busca
+    // de membro do MIT Nuvem, mesmo sem ter feito login com usuário/senha.
+    // Roda em segundo plano: se o servidor não estiver configurado, ou a
+    // chamada falhar por qualquer motivo, o token já foi gerado e continua
+    // funcionando normalmente — isso aqui é só um "a mais".
+    salvarTokenNoBanco(entry).catch(() => { /* já registrado localmente, segue sem travar */ });
+
     document.getElementById('tokenText').textContent = token;
     document.getElementById('resultMeta').innerHTML = `
       <b>${escapeHtml(cliente)}</b> · app: <b>${escapeHtml(appId)}</b> · ${TYPE_LABEL[selectedType]} · até ${maxDevices} dispositivo${maxDevices===1?'':'s'}<br>
@@ -467,6 +475,38 @@
 
   function licenseServerHeaders(){
     return { 'Content-Type': 'application/json', 'x-admin-key': licenseAdminKey() };
+  }
+
+  // Salva os metadados de um token bruto recém-gerado no banco (tabela
+  // tokens_gerados) — pra ele aparecer na busca de membro do MIT Nuvem.
+  // Se o servidor não estiver configurado, sai silenciosamente (o token já
+  // funciona sem isso, é só um "a mais").
+  async function salvarTokenNoBanco(entry){
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    if(!serverUrl || !adminKey) return;
+    await fetch(`${serverUrl}/tokens`, {
+      method: 'POST',
+      headers: licenseServerHeaders(),
+      body: JSON.stringify({
+        nonce: entry.nonce, cliente: entry.cliente, appId: entry.appId,
+        type: entry.type, start: entry.start, end: entry.end, maxDevices: entry.maxDevices,
+      }),
+    });
+  }
+
+  // Remove o registro do banco quando a pessoa clica "Remover" no
+  // histórico local — mesma filosofia: se o servidor não estiver
+  // configurado, ou a chamada falhar, o "Remover" local já aconteceu e a
+  // tela segue normalmente.
+  async function removerTokenDoBanco(nonce){
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    if(!serverUrl || !adminKey || !nonce) return;
+    await fetch(`${serverUrl}/tokens?nonce=${encodeURIComponent(nonce)}`, {
+      method: 'DELETE',
+      headers: licenseServerHeaders(),
+    });
   }
 
   document.getElementById('createAccountBtn').addEventListener('click', async () => {
@@ -733,10 +773,12 @@
     wrap.querySelectorAll('[data-action="remove"]').forEach(btn => btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.idx,10);
       const history = loadHistory();
+      const entry = history[idx];
       history.splice(idx,1);
       saveHistory(history);
       renderHistory();
-      showToast('Removido do histórico (o token em si continua funcionando se alguém ainda o tiver).');
+      if(entry?.nonce) removerTokenDoBanco(entry.nonce).catch(() => {});
+      showToast('Removido do histórico e do banco (o token em si continua funcionando se alguém ainda o tiver — pra invalidar de vez, use "Revogar").');
     }));
     wrap.querySelectorAll('[data-action="revoke"]').forEach(btn => btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.idx,10);
