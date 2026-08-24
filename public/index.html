@@ -524,6 +524,7 @@
       body: JSON.stringify({
         nonce: entry.nonce, cliente: entry.cliente, appId: entry.appId,
         type: entry.type, start: entry.start, end: entry.end, maxDevices: entry.maxDevices,
+        token: entry.token,
       }),
     });
   }
@@ -540,6 +541,49 @@
       method: 'DELETE',
       headers: licenseServerHeaders(),
     });
+  }
+
+  // Busca os tokens gerados salvos no servidor e mescla com o histórico
+  // deste navegador — sem isto, abrir o painel em outro aparelho mostrava
+  // "Nenhum token gerado ainda", mesmo já tendo gerado vários em outro
+  // lugar (o histórico até então só existia no localStorage de cada
+  // navegador, nunca era buscado de volta do servidor).
+  async function carregarTokensDoBanco(){
+    const serverUrl = licenseServerUrl();
+    const adminKey = licenseAdminKey();
+    if(!serverUrl || !adminKey) return;
+    try{
+      const res = await fetch(`${serverUrl}/tokens`, { headers: licenseServerHeaders() });
+      const data = await res.json().catch(() => null);
+      if(!data || !data.ok || !Array.isArray(data.tokens)) return;
+
+      const local = loadHistory();
+      const porNonce = new Map(local.filter(e => e.nonce).map(e => [e.nonce, e]));
+      for(const remoto of data.tokens){
+        const existente = porNonce.get(remoto.nonce);
+        const mesclado = {
+          cliente: remoto.cliente,
+          appId: remoto.appId,
+          type: remoto.type,
+          start: remoto.start,
+          end: remoto.end,
+          maxDevices: remoto.maxDevices,
+          nonce: remoto.nonce,
+          revoked: !!remoto.revoked,
+          // Se este navegador não tem o token (foi gerado em outro
+          // aparelho), usa o valor vindo do servidor — assim dá pra
+          // copiar de qualquer lugar, não só de onde foi gerado.
+          token: (existente && existente.token) || remoto.token || '',
+          createdAt: (existente && existente.createdAt) || new Date(remoto.createdAt || Date.now()).toISOString(),
+        };
+        porNonce.set(remoto.nonce, mesclado);
+      }
+      saveHistory(Array.from(porNonce.values()).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      renderHistory();
+    }catch(e){
+      // Sem internet ou servidor fora do ar — segue mostrando só o que já
+      // estava salvo localmente, sem travar a tela.
+    }
   }
 
   document.getElementById('createAccountBtn').addEventListener('click', async () => {
@@ -811,7 +855,7 @@
       saveHistory(history);
       renderHistory();
       if(entry?.nonce) removerTokenDoBanco(entry.nonce).catch(() => {});
-      showToast('Removido do histórico e do banco (o token em si continua funcionando se alguém ainda o tiver — pra invalidar de vez, use "Revogar").');
+      showToast('Removido — o acesso deste token foi revogado (quem já tiver ele colado vai perder o acesso na próxima checagem com internet).');
     }));
     wrap.querySelectorAll('[data-action="revoke"]').forEach(btn => btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.idx,10);
@@ -989,6 +1033,12 @@
   ativarAba(localStorage.getItem(TAB_STORAGE_KEY) || 'inicial');
 
   renderHistory();
+  // Busca do servidor assim que o painel abre — sem isto, abrir em outro
+  // aparelho mostrava tudo vazio até clicar manualmente em "Atualizar
+  // lista" (contas) — e o histórico de tokens nem tinha um jeito de
+  // atualizar sozinho antes desta função existir.
+  carregarTokensDoBanco();
+  loadUsersList().catch(() => { /* sem servidor configurado ainda, tudo bem */ });
 })();
 </script>
 <script src="mit-brand.js" data-default-name="MIT License" data-default-sub="Configure o nome da sua produtora ou empresa" data-storage-key="mit_brand_admin"></script>
