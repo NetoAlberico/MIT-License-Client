@@ -430,9 +430,27 @@
   const adminKeyInput = document.getElementById("adminKeyInput");
   licenseServerInput.value = localStorage.getItem(LICENSE_SERVER_KEY) || "";
   adminKeyInput.value = localStorage.getItem(ADMIN_KEY_KEY) || "";
-  document.getElementById("saveLicenseServerBtn").addEventListener("click", () => {
-    localStorage.setItem(LICENSE_SERVER_KEY, licenseServerInput.value.trim().replace(/\/+$/, ""));
-    localStorage.setItem(ADMIN_KEY_KEY, adminKeyInput.value.trim());
+  document.getElementById("saveLicenseServerBtn").addEventListener("click", async () => {
+    const serverUrl = licenseServerInput.value.trim().replace(/\/+$/, "");
+    const chave = adminKeyInput.value.trim();
+    if(serverUrl && chave){
+      // Mesma proteção da tela de login — sem isto, salvar aqui uma chave
+      // errada por engano ficava "aceito" silenciosamente, e só ia dar
+      // erro depois, numa ação qualquer, sem deixar claro o motivo.
+      try{
+        const res = await fetch(`${serverUrl}/admin/usuarios`, { headers: { "x-admin-key": chave } });
+        const data = await res.json().catch(() => null);
+        if(!res.ok || !data || !data.ok){
+          showToast("Essa chave não é válida neste servidor — não foi salva. Confira o valor.");
+          return;
+        }
+      }catch(e){
+        showToast("Não foi possível confirmar com o servidor — verifique a URL e sua internet.");
+        return;
+      }
+    }
+    localStorage.setItem(LICENSE_SERVER_KEY, serverUrl);
+    localStorage.setItem(ADMIN_KEY_KEY, chave);
     showToast("Configuração do servidor de licenças salva.");
   });
   function licenseServerUrl(){ return localStorage.getItem(LICENSE_SERVER_KEY) || ""; }
@@ -1215,6 +1233,28 @@
     if(gateModoChaveDireta){
       const chave = gateChave.value.trim();
       if(!chave){ mostrarErroGate("Cole a chave de admin."); return; }
+      // Antes, isto salvava a chave digitada sem checar nada — qualquer
+      // valor "passava" da tela, mesmo estando errado, e sobrescrevia
+      // silenciosamente a chave correta que já estivesse salva. Agora
+      // confere com o servidor antes de aceitar.
+      gateSubmitBtn.disabled = true;
+      gateSubmitBtn.textContent = "Verificando…";
+      try{
+        const res = await fetch(`${serverUrl}/admin/usuarios`, {
+          headers: { "x-admin-key": chave },
+        });
+        const data = await res.json().catch(() => null);
+        if(!res.ok || !data || !data.ok){
+          mostrarErroGate("Essa chave não é válida neste servidor — confira se é exatamente a mesma configurada no MIT_ADMIN_KEY.");
+          return;
+        }
+      }catch(e){
+        mostrarErroGate("Não foi possível confirmar a chave — verifique a URL do servidor e sua internet.");
+        return;
+      }finally{
+        gateSubmitBtn.disabled = false;
+        gateSubmitBtn.textContent = "Entrar";
+      }
       localStorage.setItem(LICENSE_SERVER_KEY, serverUrl);
       localStorage.setItem(ADMIN_KEY_KEY, chave);
       licenseServerInput.value = serverUrl;
