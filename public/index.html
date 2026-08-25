@@ -18,6 +18,38 @@
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
   .wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px;}
+
+  .lic-gate-overlay{
+    position:fixed; inset:0; z-index:999999; background:#0b0d10;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .lic-gate-card{
+    width:100%; max-width:380px; background:#15181c; border:1px solid #262b31;
+    border-radius:14px; padding:28px 26px; box-shadow:0 20px 60px rgba(0,0,0,.45);
+  }
+  .lic-gate-brand{ display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .lic-gate-mark{ width:28px; height:28px; border-radius:50%; background:#23272c; color:#8a9099; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .lic-gate-brand span:last-child{ color:#8a9099; font-size:12px; letter-spacing:.06em; text-transform:uppercase; font-weight:700; }
+  .lic-gate-card h2{ color:#EDEBE2; font-size:19px; font-weight:800; margin:0 0 6px; }
+  .lic-gate-sub{ color:#9aa0a8; font-size:13px; line-height:1.5; margin:0 0 20px; }
+  .lic-gate-label{ display:block; color:#9aa0a8; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-bottom:7px; }
+  .lic-gate-input{
+    width:100%; box-sizing:border-box; background:#0f1114; border:1px solid #2c3138; color:#EDEBE2;
+    padding:12px 13px; border-radius:9px; font-size:14px; outline:none; margin-bottom:14px;
+  }
+  .lic-gate-input:focus{ border-color:#4C8579; }
+  .lic-gate-error{ color:#e0796a; font-size:12.5px; margin:-4px 0 10px; min-height:16px; }
+  .lic-gate-btn{
+    width:100%; background:#4C8579; color:#fff; border:none; padding:12px;
+    border-radius:9px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .lic-gate-btn:hover{ background:#59987f; }
+  .lic-gate-foot{ margin-top:16px; color:#5c636b; font-size:11.5px; text-align:center; }
+  .lic-gate-foot a{ color:#8a9099; text-decoration:underline; cursor:pointer; }
+  .lic-gate-logout{
+    position:fixed; top:14px; right:14px; z-index:900; background:#15181c; border:1px solid #262b31;
+    color:#8a9099; font-size:12px; padding:6px 12px; border-radius:8px; cursor:pointer;
+  }
   .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .brand-mark{width:40px;height:40px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--line);}
   .brand-mark img{width:100%;height:100%;object-fit:contain;}
@@ -43,7 +75,7 @@
 
   .field{margin-bottom:16px;}
   .field label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:7px;}
-  .field input[type=text], .field input[type=date], .field input[type=number], .field select{
+  .field input[type=text], .field input[type=date], .field input[type=number], .field input[type=password], .field select{
     width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
     padding:10px 12px;border-radius:var(--radius-sm);font-size:14px;outline:none;
   }
@@ -97,10 +129,47 @@
   .hint{color:var(--muted-2);font-size:12px;margin-top:8px;line-height:1.5;}
   .secret-row{display:flex;gap:8px;align-items:flex-end;}
   .secret-row .field{flex:1;margin-bottom:0;}
+  .admin-login-box{
+    background: var(--bg-2, #0f1114); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; margin-bottom:20px;
+  }
+  @media (max-width: 620px){
+    .secret-row{ flex-direction:column; align-items:stretch; }
+  }
   input[type=file]{display:none;}
 </style>
 </head>
 <body>
+<div id="licGateOverlay" class="lic-gate-overlay">
+  <div class="lic-gate-card">
+    <div class="lic-gate-brand">
+      <span class="lic-gate-mark">ML</span>
+      <span>MIT LICENSE · ACESSO</span>
+    </div>
+    <h2 id="licGateTitle">Entrar</h2>
+    <p class="lic-gate-sub" id="licGateSub">Digite o usuário e senha de administrador pra abrir o painel. O acesso fica salvo neste aparelho até você sair.</p>
+
+    <label class="lic-gate-label">URL do servidor (mit-cloud)</label>
+    <input type="text" id="licGateServerInput" class="lic-gate-input" placeholder="https://mit-cloud.seunome.workers.dev" />
+
+    <div id="licGateLoginFields">
+      <label class="lic-gate-label">Usuário</label>
+      <input type="text" id="licGateUsuario" class="lic-gate-input" autocomplete="username" />
+      <label class="lic-gate-label">Senha</label>
+      <input type="password" id="licGateSenha" class="lic-gate-input" autocomplete="current-password" />
+    </div>
+    <div id="licGateChaveFields" style="display:none;">
+      <label class="lic-gate-label">Chave de admin (ADMIN_KEY)</label>
+      <input type="text" id="licGateChave" class="lic-gate-input" placeholder="cole a chave crua aqui" />
+    </div>
+
+    <div class="lic-gate-error" id="licGateError"></div>
+    <button class="lic-gate-btn" id="licGateSubmitBtn">Entrar</button>
+    <p class="lic-gate-foot">
+      <a id="licGateToggleModo" href="javascript:void(0)">Ainda não criei um login — usar a chave direto</a>
+    </p>
+  </div>
+</div>
 <div class="wrap">
   <div class="brand">
     <span id="mitBrandLogoWrap" class="brand-mark" style="position:relative;">
@@ -174,6 +243,28 @@
   <div class="tab-panel" id="tab-devices">
   <div class="card">
     <h2>Limite de dispositivos</h2>
+
+    <div class="admin-login-box" id="adminLoginBox">
+      <h3 style="margin:0 0 4px; font-size:13px; color:var(--muted-2); text-transform:uppercase; letter-spacing:.04em;">Login de administrador</h3>
+      <p class="hint" style="margin-top:0;">Você já entra por aqui direto na tela de login, ao abrir o painel. Use esta seção só pra criar o primeiro login, ou trocar a senha depois.</p>
+
+      <details>
+        <summary style="cursor:pointer; font-size:12.5px; color:var(--muted-2);">Criar ou trocar o login de administrador</summary>
+        <div class="secret-row" style="margin-top:10px;">
+          <div class="field">
+            <label>Novo usuário</label>
+            <input type="text" id="adminCriarUsuario" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>Nova senha (mín. 6 caracteres)</label>
+            <input type="password" id="adminCriarSenha" autocomplete="new-password" />
+          </div>
+          <button class="btn secondary" id="adminCriarBtn">Salvar login</button>
+        </div>
+        <p class="hint">Isto usa a "Chave de admin" já preenchida abaixo como autorização — só quem já tem a chave crua pode criar ou trocar o login. Depois de criado, use esse usuário/senha na tela de login (ao abrir o painel), em qualquer aparelho.</p>
+      </details>
+    </div>
+
     <div class="secret-row">
       <div class="field">
         <label>URL do servidor de licenças (license-server)</label>
@@ -346,6 +437,37 @@
   });
   function licenseServerUrl(){ return localStorage.getItem(LICENSE_SERVER_KEY) || ""; }
   function licenseAdminKey(){ return localStorage.getItem(ADMIN_KEY_KEY) || ""; }
+
+  /* ---------------------------- criar/trocar login de administrador ---------------------------- */
+  document.getElementById("adminCriarBtn").addEventListener("click", async () => {
+    const serverUrl = licenseServerInput.value.trim().replace(/\/+$/, "");
+    const chaveAtual = adminKeyInput.value.trim();
+    const usuario = document.getElementById("adminCriarUsuario").value.trim();
+    const senha = document.getElementById("adminCriarSenha").value;
+    if(!serverUrl || !chaveAtual){
+      showToast("Preencha a URL do servidor e a Chave de admin (ADMIN_KEY) abaixo primeiro.");
+      return;
+    }
+    if(!usuario || !senha){ showToast("Informe usuário e senha pro novo login."); return; }
+    if(senha.length < 6){ showToast("A senha precisa ter pelo menos 6 caracteres."); return; }
+    try{
+      const res = await fetch(`${serverUrl}/admin/criar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": chaveAtual },
+        body: JSON.stringify({ usuario, senha }),
+      });
+      const data = await res.json().catch(() => null);
+      if(!data || !data.ok){
+        showToast(data?.error || "Não foi possível criar o login.");
+        return;
+      }
+      document.getElementById("adminLoginUsuario").value = usuario;
+      document.getElementById("adminCriarSenha").value = "";
+      showToast(`Login "${usuario}" criado — já pode usar no campo "Entrar" acima, em qualquer aparelho.`);
+    }catch(e){
+      showToast("Não foi possível contatar o servidor — verifique sua internet e a URL configurada.");
+    }
+  });
 
   /* ---------------------------- criptografia (mesma lógica do mit-license.js) --------------------------- */
   function strToB64url(str){
@@ -1033,12 +1155,114 @@
   ativarAba(localStorage.getItem(TAB_STORAGE_KEY) || 'inicial');
 
   renderHistory();
-  // Busca do servidor assim que o painel abre — sem isto, abrir em outro
-  // aparelho mostrava tudo vazio até clicar manualmente em "Atualizar
-  // lista" (contas) — e o histórico de tokens nem tinha um jeito de
-  // atualizar sozinho antes desta função existir.
-  carregarTokensDoBanco();
-  loadUsersList().catch(() => { /* sem servidor configurado ainda, tudo bem */ });
+
+  /* ============================ GATE DE LOGIN ============================ */
+  // Antes, este painel abria direto (sem pedir nada) e cada aparelho
+  // precisava ter a "Chave de admin" digitada manualmente na aba "Limite
+  // de Dispositivos" pra "Contas existentes"/"Assinaturas geradas"
+  // carregarem do servidor — é por isso que abrir num aparelho novo
+  // (ex.: celular) mostrava tudo vazio. Agora o painel fica bloqueado até
+  // logar (usuário/senha, ou a chave direto na primeira vez em cada
+  // aparelho novo), e só então os dados são buscados.
+  const gateOverlay = document.getElementById("licGateOverlay");
+  const gateServerInput = document.getElementById("licGateServerInput");
+  const gateUsuario = document.getElementById("licGateUsuario");
+  const gateSenha = document.getElementById("licGateSenha");
+  const gateChave = document.getElementById("licGateChave");
+  const gateError = document.getElementById("licGateError");
+  const gateLoginFields = document.getElementById("licGateLoginFields");
+  const gateChaveFields = document.getElementById("licGateChaveFields");
+  const gateToggleModo = document.getElementById("licGateToggleModo");
+  const gateSubmitBtn = document.getElementById("licGateSubmitBtn");
+  let gateModoChaveDireta = false;
+
+  function mostrarErroGate(msg){ gateError.textContent = msg; }
+
+  function alternarModoGate(){
+    gateModoChaveDireta = !gateModoChaveDireta;
+    gateLoginFields.style.display = gateModoChaveDireta ? "none" : "block";
+    gateChaveFields.style.display = gateModoChaveDireta ? "block" : "none";
+    gateToggleModo.textContent = gateModoChaveDireta
+      ? "Já tenho um login — usar usuário e senha"
+      : "Ainda não criei um login — usar a chave direto";
+    mostrarErroGate("");
+  }
+  gateToggleModo.addEventListener("click", alternarModoGate);
+
+  function abrirPainelLogado(){
+    gateOverlay.style.display = "none";
+    let sairBtn = document.getElementById("licGateSairBtn");
+    if(!sairBtn){
+      sairBtn = document.createElement("button");
+      sairBtn.id = "licGateSairBtn";
+      sairBtn.className = "lic-gate-logout";
+      sairBtn.textContent = "Sair";
+      sairBtn.addEventListener("click", () => {
+        localStorage.removeItem(ADMIN_KEY_KEY);
+        location.reload();
+      });
+      document.body.appendChild(sairBtn);
+    }
+    carregarTokensDoBanco();
+    loadUsersList().catch(() => { /* sem servidor configurado ainda, tudo bem */ });
+  }
+
+  gateSubmitBtn.addEventListener("click", async () => {
+    mostrarErroGate("");
+    const serverUrl = gateServerInput.value.trim().replace(/\/+$/, "");
+    if(!serverUrl){ mostrarErroGate("Informe a URL do servidor."); return; }
+
+    if(gateModoChaveDireta){
+      const chave = gateChave.value.trim();
+      if(!chave){ mostrarErroGate("Cole a chave de admin."); return; }
+      localStorage.setItem(LICENSE_SERVER_KEY, serverUrl);
+      localStorage.setItem(ADMIN_KEY_KEY, chave);
+      licenseServerInput.value = serverUrl;
+      adminKeyInput.value = chave;
+      abrirPainelLogado();
+      return;
+    }
+
+    const usuario = gateUsuario.value.trim();
+    const senha = gateSenha.value;
+    if(!usuario || !senha){ mostrarErroGate("Informe usuário e senha."); return; }
+    gateSubmitBtn.disabled = true;
+    gateSubmitBtn.textContent = "Entrando…";
+    try{
+      const res = await fetch(`${serverUrl}/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario, senha }),
+      });
+      const data = await res.json().catch(() => null);
+      if(!data || !data.ok){
+        mostrarErroGate(data?.error || "Usuário ou senha incorretos.");
+        return;
+      }
+      localStorage.setItem(LICENSE_SERVER_KEY, serverUrl);
+      localStorage.setItem(ADMIN_KEY_KEY, data.adminKey);
+      licenseServerInput.value = serverUrl;
+      adminKeyInput.value = data.adminKey;
+      abrirPainelLogado();
+    }catch(e){
+      mostrarErroGate("Não foi possível contatar o servidor — verifique a URL e sua internet.");
+    }finally{
+      gateSubmitBtn.disabled = false;
+      gateSubmitBtn.textContent = "Entrar";
+    }
+  });
+  [gateUsuario, gateSenha, gateChave, gateServerInput].forEach((el) => {
+    el.addEventListener("keydown", (e) => { if(e.key === "Enter") gateSubmitBtn.click(); });
+  });
+
+  // Se este aparelho já tem uma chave salva (de uma sessão anterior, ou
+  // porque acabou de logar), pula o gate direto.
+  if(licenseAdminKey() && licenseServerUrl()){
+    abrirPainelLogado();
+  }else{
+    gateServerInput.value = licenseServerUrl() || "";
+    gateOverlay.style.display = "flex";
+  }
 })();
 </script>
 <script src="mit-brand.js" data-default-name="MIT License" data-default-sub="Configure o nome da sua produtora ou empresa" data-storage-key="mit_brand_admin"></script>
