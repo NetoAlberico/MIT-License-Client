@@ -107,6 +107,18 @@
   .result-meta b{color:var(--text);}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
+  /* Sem isto, tabelas com muitas colunas (Cliente/App/Tipo/Vigência/
+     Status/Dispositivos + botões de ação) ficavam cortadas em telas
+     estreitas — o conteúdo simplesmente desaparecia pra fora da tela em
+     vez de poder ser visto arrastando o dedo pro lado. */
+  #tableWrap, #usersTableWrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #tableWrap table, #usersTableWrap table{ min-width:640px; }
+  @media (max-width: 700px){
+    .wrap{ padding:20px 12px 60px; }
+    .toolbar{ flex-direction:column; align-items:flex-start; gap:10px; }
+    .toolbar .actions{ flex-wrap:wrap; }
+    .tabs{ font-size:12.5px; }
+  }
   th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;
     padding:8px 10px;border-bottom:1px solid var(--line);}
   td{padding:10px 10px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
