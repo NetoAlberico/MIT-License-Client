@@ -852,14 +852,19 @@
     }));
     wrap.querySelectorAll('[data-action="reset-user-password"]').forEach(btn => btn.addEventListener('click', async () => {
       const username = btn.dataset.username;
-      if(!confirm(`Gerar uma senha NOVA para "${username}"?\n\nA senha antiga para de funcionar na hora — a pessoa só consegue entrar de novo com a senha nova que vai aparecer aqui (a atual continua com o mesmo usuário e o mesmo período/dispositivos, só a senha muda).`)) return;
+      const digitada = prompt(`Nova senha para "${username}"\n\nDigite a senha que você quer usar (mínimo 6 caracteres), ou deixe em branco e confirme pra gerar uma aleatória automaticamente.`, '');
+      if(digitada === null) return; // clicou Cancelar — não faz nada
+      const senhaEscolhida = digitada.trim();
+      if(senhaEscolhida && senhaEscolhida.length < 6){ showToast('A senha precisa ter pelo menos 6 caracteres (ou deixe em branco pra gerar automática).'); return; }
+      if(!confirm(`Trocar a senha de "${username}"?\n\nA senha antiga para de funcionar na hora — a pessoa só consegue entrar de novo com a senha nova (o resto da conta, período/dispositivos, continua igual).`)) return;
+
       const serverUrl = licenseServerUrl();
-      btn.disabled = true; btn.textContent = 'Gerando…';
+      btn.disabled = true; btn.textContent = 'Trocando…';
       try{
         const res = await fetch(`${serverUrl}/users/reset-password`, {
           method: 'POST',
           headers: licenseServerHeaders(),
-          body: JSON.stringify({ username }),
+          body: JSON.stringify({ username, password: senhaEscolhida }), // vazio = servidor gera uma aleatória
         });
         const data = await res.json();
         if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível trocar a senha.'); return; }
