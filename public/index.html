@@ -821,6 +821,7 @@
           <td>${devicesLabel}</td>
           <td>
             <div class="row-actions">
+              <button class="btn small secondary" data-action="reset-user-password" data-username="${escapeHtml(u.username)}">Trocar senha</button>
               <button class="btn small secondary" data-action="reset-user-devices" data-username="${escapeHtml(u.username)}">Resetar dispositivos</button>
               <button class="btn small danger" data-action="revoke-user" data-username="${escapeHtml(u.username)}">Revogar</button>
             </div>
@@ -848,6 +849,33 @@
         showToast(`Conta de "${username}" revogada.`);
         loadUsersList();
       }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
+    }));
+    wrap.querySelectorAll('[data-action="reset-user-password"]').forEach(btn => btn.addEventListener('click', async () => {
+      const username = btn.dataset.username;
+      if(!confirm(`Gerar uma senha NOVA para "${username}"?\n\nA senha antiga para de funcionar na hora — a pessoa só consegue entrar de novo com a senha nova que vai aparecer aqui (a atual continua com o mesmo usuário e o mesmo período/dispositivos, só a senha muda).`)) return;
+      const serverUrl = licenseServerUrl();
+      btn.disabled = true; btn.textContent = 'Gerando…';
+      try{
+        const res = await fetch(`${serverUrl}/users/reset-password`, {
+          method: 'POST',
+          headers: licenseServerHeaders(),
+          body: JSON.stringify({ username }),
+        });
+        const data = await res.json();
+        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível trocar a senha.'); return; }
+
+        // Reaproveita a mesma caixa de "credenciais novas" usada na criação
+        // de conta — é o mesmo momento de "copie agora, só aparece uma vez".
+        document.getElementById('accountCredsText').textContent = `Usuário: ${username}\nSenha: ${data.password}`;
+        document.getElementById('accountResultMeta').innerHTML = `
+          Senha trocada para <b>${escapeHtml(username)}</b> — o resto da conta (app, período, dispositivos) continua igual.<br>
+          <span style="color:var(--danger);">A senha só aparece esta vez — copie e envie agora.</span>
+        `;
+        document.getElementById('accountResult').classList.add('show');
+        document.getElementById('accountResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showToast(`Senha de "${username}" trocada.`);
+      }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
+      finally{ btn.disabled = false; btn.textContent = 'Trocar senha'; }
     }));
     wrap.querySelectorAll('[data-action="reset-user-devices"]').forEach(btn => btn.addEventListener('click', async () => {
       const username = btn.dataset.username;
