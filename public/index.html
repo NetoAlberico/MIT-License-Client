@@ -111,8 +111,13 @@
      Status/Dispositivos + botões de ação) ficavam cortadas em telas
      estreitas — o conteúdo simplesmente desaparecia pra fora da tela em
      vez de poder ser visto arrastando o dedo pro lado. */
-  #tableWrap, #usersTableWrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  #tableWrap table, #usersTableWrap table{ min-width:640px; }
+  #tableWrap, #usersTableWrap, #usersTableWrapConta{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #tableWrap table, #usersTableWrap table, #usersTableWrapConta table{ min-width:640px; }
+  .conta-edicao-row td{ background:var(--panel-2); }
+  .conta-edicao{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .conta-edicao .field{ flex:1 1 260px; margin:0; }
+  .conta-resultado .token-box{ margin-bottom:8px; }
+  .conta-resultado pre{ margin:0; flex:1; white-space:pre-wrap; font:inherit; }
   @media (max-width: 700px){
     .wrap{ padding:20px 12px 60px; }
     .toolbar{ flex-direction:column; align-items:flex-start; gap:10px; }
@@ -433,6 +438,17 @@
       </div>
       <div class="result-meta" id="accountResultMeta"></div>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;font-size:13px;">Contas criadas <span class="badge not-started" id="contasContagem">—</span></h2>
+      <div class="actions">
+        <button class="btn secondary small" id="refreshUsersContaBtn" type="button">Atualizar lista</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:-4px;">Veja as contas, troque a senha de alguém (a senha nova aparece uma única vez, pra você copiar e enviar), resete os aparelhos ou exclua a conta.</p>
+    <div id="usersTableWrapConta"></div>
   </div>
   </div>
 </div>
@@ -955,32 +971,44 @@
   });
 
   document.getElementById('copyAccountBtn').addEventListener('click', () => {
-    copyToClipboard(document.getElementById('accountCredsText').textContent);
+    copyToClipboard(document.getElementById('accountCredsText').textContent, 'Usuário e senha copiados.');
   });
 
   document.getElementById('refreshUsersBtn').addEventListener('click', loadUsersList);
+  document.getElementById('refreshUsersContaBtn').addEventListener('click', loadUsersList);
 
+  const WRAPS_USUARIOS = ['usersTableWrap', 'usersTableWrapConta'];   // a lista aparece na aba Inicial e na aba de criar conta
+  function wrapsUsuarios(){ return WRAPS_USUARIOS.map(id => document.getElementById(id)).filter(Boolean); }
   async function loadUsersList(){
     const serverUrl = licenseServerUrl();
     const adminKey = licenseAdminKey();
-    const wrap = document.getElementById('usersTableWrap');
+    const wraps = wrapsUsuarios();
+    const mensagem = (texto) => wraps.forEach(w => { w.innerHTML = `<div class="empty">${escapeHtml(texto)}</div>`; });
+    const cont = document.getElementById('contasContagem');
     if(!serverUrl || !adminKey){
-      wrap.innerHTML = `<div class="empty">Configure o servidor de licenças acima pra ver as contas.</div>`;
+      if(cont) cont.textContent = '—';
+      mensagem('Configure o servidor de licenças (aba Limite de Dispositivos) pra ver as contas.');
       return;
     }
-    wrap.innerHTML = `<div class="empty">Carregando…</div>`;
+    mensagem('Carregando…');
     try{
       const res = await fetch(`${serverUrl}/users`, { headers: { 'x-admin-key': adminKey } });
       const data = await res.json();
-      if(!res.ok || !data.ok){ wrap.innerHTML = `<div class="empty">${escapeHtml(data.error || 'Não foi possível carregar as contas.')}</div>`; return; }
+      if(!res.ok || !data.ok){ if(cont) cont.textContent = '—'; mensagem(data.error || 'Não foi possível carregar as contas.'); return; }
       renderUsersTable(data.users || []);
     }catch(err){
-      wrap.innerHTML = `<div class="empty">Erro ao contatar o servidor de licenças.</div>`;
+      if(cont) cont.textContent = '—';
+      mensagem('Erro ao contatar o servidor de licenças.');
     }
   }
 
   function renderUsersTable(users){
-    const wrap = document.getElementById('usersTableWrap');
+    const cont = document.getElementById('contasContagem');
+    if(cont) cont.textContent = String(users.length);
+    wrapsUsuarios().forEach(w => renderUsersTableEm(w, users));
+  }
+
+  function renderUsersTableEm(wrap, users){
     if(!users.length){ wrap.innerHTML = `<div class="empty">Nenhuma conta criada ainda.</div>`; return; }
     const rows = users.map(u => {
       const st = statusFor(u.end, u.start);
@@ -995,8 +1023,9 @@
           <td>${devicesLabel}</td>
           <td>
             <div class="row-actions">
+              <button class="btn small secondary" data-action="reset-user-password" data-username="${escapeHtml(u.username)}">Trocar senha</button>
               <button class="btn small secondary" data-action="reset-user-devices" data-username="${escapeHtml(u.username)}">Resetar dispositivos</button>
-              <button class="btn small danger" data-action="revoke-user" data-username="${escapeHtml(u.username)}">Revogar</button>
+              <button class="btn small danger" data-action="revoke-user" data-username="${escapeHtml(u.username)}">Excluir</button>
             </div>
           </td>
         </tr>
@@ -1010,7 +1039,7 @@
     `;
     wrap.querySelectorAll('[data-action="revoke-user"]').forEach(btn => btn.addEventListener('click', async () => {
       const username = btn.dataset.username;
-      if(!confirm(`Revogar o acesso de "${username}"?\n\nA pessoa não vai mais conseguir entrar (mesmo com a senha certa), e o app dela vai bloquear na próxima checagem — mesmo se o token guardado no aparelho ainda não tivesse vencido.`)) return;
+      if(!confirm(`Excluir a conta de "${username}"?\n\nA conta é apagada: a pessoa não vai mais conseguir entrar (mesmo com a senha certa), e o app dela vai bloquear na próxima checagem — mesmo se o token guardado no aparelho ainda não tivesse vencido.\n\nIsso não dá pra desfazer.`)) return;
       const serverUrl = licenseServerUrl();
       try{
         const res = await fetch(`${serverUrl}/users?username=${encodeURIComponent(username)}`, {
@@ -1018,11 +1047,12 @@
           headers: { 'x-admin-key': licenseAdminKey() },
         });
         const data = await res.json();
-        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível revogar.'); return; }
-        showToast(`Conta de "${username}" revogada.`);
+        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível excluir.'); return; }
+        showToast(`Conta de "${username}" excluída.`);
         loadUsersList();
       }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
     }));
+    wrap.querySelectorAll('[data-action="reset-user-password"]').forEach(btn => btn.addEventListener('click', () => alternarTrocaSenhaConta(wrap, btn.closest('tr'), btn.dataset.username)));
     wrap.querySelectorAll('[data-action="reset-user-devices"]').forEach(btn => btn.addEventListener('click', async () => {
       const username = btn.dataset.username;
       const serverUrl = licenseServerUrl();
@@ -1038,6 +1068,68 @@
         loadUsersList();
       }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
     }));
+  }
+
+  // Abre (ou fecha) a linha de "trocar senha" logo abaixo da conta. Só uma aberta por vez em cada lista.
+  function alternarTrocaSenhaConta(wrap, linha, username){
+    if(!linha) return;
+    const jaAberta = wrap.querySelector('.conta-edicao-row');
+    const eraDela = jaAberta && jaAberta.dataset.username === username;
+    if(jaAberta) jaAberta.remove();
+    if(eraDela) return;
+    const colunas = linha.children.length;
+    const edicao = document.createElement('tr');
+    edicao.className = 'conta-edicao-row';
+    edicao.dataset.username = username;
+    edicao.innerHTML = `<td colspan="${colunas}"><div class="conta-edicao">
+        <div class="field"><input type="text" autocomplete="off" placeholder="Nova senha (deixe em branco pra gerar uma senha aleatória)" /></div>
+        <button class="btn small" type="button" data-acao="confirmar-senha">Trocar senha</button>
+        <button class="btn small secondary" type="button" data-acao="cancelar-senha">Cancelar</button>
+      </div>
+      <p class="hint" style="margin:6px 0 0;">Os aparelhos dessa conta vão precisar entrar de novo com a senha nova. A senha só aparece uma vez.</p></td>`;
+    linha.after(edicao);
+    const campo = edicao.querySelector('input');
+    const confirmar = () => trocarSenhaConta(username, campo.value.trim(), edicao);
+    edicao.querySelector('[data-acao="confirmar-senha"]').addEventListener('click', confirmar);
+    edicao.querySelector('[data-acao="cancelar-senha"]').addEventListener('click', () => edicao.remove());
+    campo.addEventListener('keydown', (ev) => { if(ev.key === 'Enter') confirmar(); if(ev.key === 'Escape') edicao.remove(); });
+    campo.focus();
+  }
+
+  async function trocarSenhaConta(username, senhaEscolhida, edicao){
+    if(senhaEscolhida && senhaEscolhida.length < 6){ showToast('A senha precisa ter pelo menos 6 caracteres (ou deixe em branco pra gerar uma).'); return; }
+    const serverUrl = licenseServerUrl();
+    if(!serverUrl || !licenseAdminKey()){ showToast('Configure o servidor de licenças primeiro (aba Limite de Dispositivos).'); return; }
+    const corpo = { username };
+    if(senhaEscolhida) corpo.password = senhaEscolhida;
+    let status = 0, data = null;
+    try{
+      const res = await fetch(`${serverUrl}/users/reset-password`, { method: 'POST', headers: licenseServerHeaders(), body: JSON.stringify(corpo) });
+      status = res.status;
+      data = await res.json().catch(() => null);
+    }catch(err){
+      showToast('Erro ao contatar o servidor de licenças.');
+      return;
+    }
+    // O Worker publicado pode ser de uma versão antiga, sem esta rota: ele responde "Rota não encontrada."
+    if(status === 404 && data && /Rota não encontrada/i.test(data.error || data.erro || '')){
+      showToast('O servidor ainda não tem a troca de senha — publique a versão mais nova do Worker (mit-cloud).');
+      return;
+    }
+    if(!data || !data.ok){ showToast((data && data.error) || 'Não foi possível trocar a senha.'); return; }
+
+    // Mostra a senha nova UMA vez, pronta pra copiar e enviar (mesmo formato da criação de conta).
+    const texto = `Usuário: ${data.username}\nSenha: ${data.password}`;
+    const cel = edicao.querySelector('td');
+    cel.innerHTML = `<div class="conta-resultado">
+        <div class="token-box"><pre></pre><button class="btn small secondary" type="button" data-acao="copiar-creds">Copiar</button></div>
+        <div class="result-meta"><span style="color:var(--danger);">A senha só aparece esta vez — copie e envie agora.</span> Os aparelhos dessa conta precisam entrar de novo com a senha nova.</div>
+        <button class="btn small secondary" type="button" data-acao="fechar-creds" style="margin-top:8px;">Fechar</button>
+      </div>`;
+    cel.querySelector('pre').textContent = texto;
+    cel.querySelector('[data-acao="copiar-creds"]').addEventListener('click', () => copyToClipboard(texto, 'Usuário e senha copiados.'));
+    cel.querySelector('[data-acao="fechar-creds"]').addEventListener('click', () => edicao.remove());
+    showToast(`Senha de "${username}" trocada.`);
   }
 
   document.getElementById('exportUsersBtn').addEventListener('click', async () => {
@@ -1333,8 +1425,8 @@
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
-  function copyToClipboard(text){
-    navigator.clipboard?.writeText(text).then(() => showToast('Token copiado.'))
+  function copyToClipboard(text, mensagem = 'Token copiado.'){
+    navigator.clipboard?.writeText(text).then(() => showToast(mensagem))
       .catch(() => showToast('Não foi possível copiar automaticamente.'));
   }
   let toastTimer = null;
@@ -1355,6 +1447,7 @@
     tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `tab-${nome}`));
     try{ localStorage.setItem(TAB_STORAGE_KEY, nome); }catch(e){ /* ignora */ }
     if(nome === 'devices' && painelLogadoAberto) carregarAdminLogins();   // atualiza a lista de logins ao abrir esta aba
+    if(nome === 'account' && painelLogadoAberto) loadUsersList();          // e a lista de contas ao abrir a aba de criar conta
   }
   tabButtons.forEach(btn => btn.addEventListener('click', () => ativarAba(btn.dataset.tab)));
   ativarAba(localStorage.getItem(TAB_STORAGE_KEY) || 'inicial');
