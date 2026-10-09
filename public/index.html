@@ -145,6 +145,15 @@
     background: var(--bg-2, #0f1114); border:1px solid var(--line); border-radius:10px;
     padding:16px 18px; margin-bottom:20px;
   }
+  .admin-logins{ margin:6px 0 14px; }
+  .admin-logins-topo{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; }
+  .admin-logins-titulo{ font-size:12.5px; color:var(--muted); font-weight:700; }
+  #adminLoginsWrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; background:var(--panel); border:1px solid var(--line-soft); border-radius:var(--radius-sm); padding:2px 6px; }
+  #adminLoginsWrap table{ min-width:380px; }
+  #adminLoginsWrap .empty{ padding:14px 6px; }
+  .admin-edicao-row td{ background:var(--panel-2); }
+  .admin-edicao{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .admin-edicao .field{ flex:1 1 220px; margin:0; }
   @media (max-width: 620px){
     .secret-row{ flex-direction:column; align-items:stretch; }
   }
@@ -258,7 +267,16 @@
 
     <div class="admin-login-box" id="adminLoginBox">
       <h3 style="margin:0 0 4px; font-size:13px; color:var(--muted-2); text-transform:uppercase; letter-spacing:.04em;">Login de administrador</h3>
-      <p class="hint" style="margin-top:0;">Você já entra por aqui direto na tela de login, ao abrir o painel. Use esta seção só pra criar o primeiro login, ou trocar a senha depois.</p>
+      <p class="hint" style="margin-top:0;">Estes são os logins que entram no painel (tela de login, ao abrir). Aqui você vê quem existe, troca a senha de alguém ou exclui um login. Pra criar um novo, use "Criar ou trocar o login" mais abaixo.</p>
+
+      <div class="admin-logins">
+        <div class="admin-logins-topo">
+          <span class="admin-logins-titulo">Logins cadastrados <span class="badge not-started" id="adminLoginsContagem">—</span></span>
+          <button class="btn small secondary" id="adminLoginsAtualizarBtn" type="button">Atualizar</button>
+        </div>
+        <div id="adminLoginsWrap"><div class="empty">Carregando…</div></div>
+        <p class="hint">Atenção: excluir um login (ou trocar a senha dele) só impede <b>novas</b> entradas. Quem já entrou continua com acesso naquele aparelho até clicar em "Sair". Pra cortar o acesso de verdade, troque a <code>MIT_ADMIN_KEY</code> na Cloudflare.</p>
+      </div>
 
       <details>
         <summary style="cursor:pointer; font-size:12.5px; color:var(--muted-2);">Criar ou trocar o login de administrador</summary>
@@ -464,6 +482,7 @@
     localStorage.setItem(LICENSE_SERVER_KEY, serverUrl);
     localStorage.setItem(ADMIN_KEY_KEY, chave);
     showToast("Configuração do servidor de licenças salva.");
+    if(typeof carregarAdminLogins === "function" && painelLogadoAberto) carregarAdminLogins();
   });
   function licenseServerUrl(){ return localStorage.getItem(LICENSE_SERVER_KEY) || ""; }
   function licenseAdminKey(){ return localStorage.getItem(ADMIN_KEY_KEY) || ""; }
@@ -505,7 +524,154 @@
     const campoSenha = document.getElementById("adminCriarSenha");
     if(campoSenha) campoSenha.value = "";
     showToast(`Login "${usuario}" salvo — já pode usar na tela de login (ao abrir o painel), em qualquer aparelho.`);
+    if(typeof carregarAdminLogins === "function") carregarAdminLogins();   // a lista mostra o novo login na hora
   });
+
+
+  /* ---------------------------- logins de administrador: listar / trocar senha / excluir ---------------------------- */
+  const adminLoginsWrap = document.getElementById("adminLoginsWrap");
+  const adminLoginsContagem = document.getElementById("adminLoginsContagem");
+  let adminLoginsCache = [];
+  let painelLogadoAberto = false;   // só busca no servidor depois que o login do painel foi feito
+
+  // Usa o que está digitado nos campos abaixo; se estiverem vazios, o que está salvo neste navegador.
+  function credenciaisAdmin(){
+    return {
+      serverUrl: (licenseServerInput.value.trim() || licenseServerUrl()).replace(/\/+$/, ""),
+      chave: adminKeyInput.value.trim() || licenseAdminKey(),
+    };
+  }
+  function fmtDataHora(ms){
+    const d = new Date(Number(ms));
+    if(!ms || isNaN(d.getTime())) return "—";
+    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+  function mostrarAdminLoginsMensagem(texto){
+    adminLoginsWrap.innerHTML = `<div class="empty">${escapeHtml(texto)}</div>`;
+  }
+
+  async function carregarAdminLogins(){
+    const { serverUrl, chave } = credenciaisAdmin();
+    if(!serverUrl || !chave){
+      adminLoginsContagem.textContent = "—";
+      mostrarAdminLoginsMensagem("Preencha a URL do servidor e a Chave de admin (logo abaixo) pra ver os logins.");
+      return;
+    }
+    mostrarAdminLoginsMensagem("Carregando…");
+    try{
+      const res = await fetch(`${serverUrl}/admin/usuarios`, { headers: { "x-admin-key": chave } });
+      const data = await res.json().catch(() => null);
+      if(res.status === 401){
+        adminLoginsContagem.textContent = "—";
+        mostrarAdminLoginsMensagem("O servidor não aceitou a Chave de admin. Confira o valor (logo abaixo) e clique em Atualizar.");
+        return;
+      }
+      if(!res.ok || !data || !data.ok){
+        adminLoginsContagem.textContent = "—";
+        mostrarAdminLoginsMensagem((data && data.error) || "Não foi possível carregar os logins.");
+        return;
+      }
+      adminLoginsCache = Array.isArray(data.usuarios) ? data.usuarios : [];
+      renderAdminLogins();
+    }catch(e){
+      adminLoginsContagem.textContent = "—";
+      mostrarAdminLoginsMensagem("Não foi possível contatar o servidor — verifique a URL e a internet.");
+    }
+  }
+
+  function renderAdminLogins(){
+    adminLoginsContagem.textContent = String(adminLoginsCache.length);
+    if(!adminLoginsCache.length){
+      mostrarAdminLoginsMensagem('Nenhum login de administrador cadastrado ainda. Crie o primeiro em "Criar ou trocar o login" abaixo — até lá, dá pra entrar pela chave direta.');
+      return;
+    }
+    const linhas = adminLoginsCache.map(u => `
+      <tr data-linha="${escapeHtml(u.usuario)}">
+        <td><b>${escapeHtml(u.usuario)}</b></td>
+        <td>${escapeHtml(fmtDataHora(u.createdAt))}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn small secondary" type="button" data-acao="trocar-senha" data-usuario="${escapeHtml(u.usuario)}">Trocar senha</button>
+            <button class="btn small danger" type="button" data-acao="excluir-login" data-usuario="${escapeHtml(u.usuario)}">Excluir</button>
+          </div>
+        </td>
+      </tr>`).join("");
+    adminLoginsWrap.innerHTML = `<table><thead><tr><th>Usuário</th><th>Criado em</th><th></th></tr></thead><tbody>${linhas}</tbody></table>`;
+    adminLoginsWrap.querySelectorAll('[data-acao="trocar-senha"]').forEach(btn => btn.addEventListener("click", () => alternarEdicaoSenha(btn.dataset.usuario)));
+    adminLoginsWrap.querySelectorAll('[data-acao="excluir-login"]').forEach(btn => btn.addEventListener("click", () => excluirAdminLogin(btn.dataset.usuario)));
+  }
+
+  // Abre (ou fecha) a linha de "nova senha" logo abaixo do usuário. Só uma aberta por vez.
+  function alternarEdicaoSenha(usuario){
+    const jaAberta = adminLoginsWrap.querySelector(".admin-edicao-row");
+    const eraDele = jaAberta && jaAberta.dataset.usuario === usuario;
+    if(jaAberta) jaAberta.remove();
+    if(eraDele) return;
+    const linha = Array.from(adminLoginsWrap.querySelectorAll("tr[data-linha]")).find(tr => tr.dataset.linha === usuario);
+    if(!linha) return;
+    const edicao = document.createElement("tr");
+    edicao.className = "admin-edicao-row";
+    edicao.dataset.usuario = usuario;
+    edicao.innerHTML = `<td colspan="3"><div class="admin-edicao">
+        <div class="field"><input type="password" autocomplete="new-password" placeholder="Nova senha de ${escapeHtml(usuario)} (mín. 6 caracteres)" /></div>
+        <button class="btn small" type="button" data-acao="salvar-senha">Salvar senha</button>
+        <button class="btn small secondary" type="button" data-acao="cancelar-senha">Cancelar</button>
+      </div></td>`;
+    linha.after(edicao);
+    const campo = edicao.querySelector("input");
+    const salvar = () => salvarNovaSenhaAdmin(usuario, campo.value);
+    edicao.querySelector('[data-acao="salvar-senha"]').addEventListener("click", salvar);
+    edicao.querySelector('[data-acao="cancelar-senha"]').addEventListener("click", () => edicao.remove());
+    campo.addEventListener("keydown", (ev) => { if(ev.key === "Enter") salvar(); if(ev.key === "Escape") edicao.remove(); });
+    campo.focus();
+  }
+
+  async function salvarNovaSenhaAdmin(usuario, senha){
+    if(!senha || senha.length < 6){ showToast("A senha precisa ter pelo menos 6 caracteres."); return; }
+    const { serverUrl, chave } = credenciaisAdmin();
+    if(!serverUrl || !chave){ showToast("Preencha a URL do servidor e a Chave de admin primeiro."); return; }
+    let data = null;
+    try{
+      // O servidor atualiza a senha se o usuário já existe (é a mesma rota de "Criar ou trocar").
+      const res = await fetch(`${serverUrl}/admin/criar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": chave },
+        body: JSON.stringify({ usuario, senha }),
+      });
+      data = await res.json().catch(() => null);
+    }catch(e){
+      showToast("Não foi possível contatar o servidor — verifique sua internet e a URL configurada.");
+      return;
+    }
+    if(!data || !data.ok){ showToast((data && data.error) || "Não foi possível trocar a senha."); return; }
+    const aberta = adminLoginsWrap.querySelector(".admin-edicao-row");
+    if(aberta) aberta.remove();
+    showToast(`Senha de "${usuario}" atualizada.`);
+  }
+
+  async function excluirAdminLogin(usuario){
+    const unico = adminLoginsCache.length === 1;
+    const aviso = `Excluir o login de administrador "${usuario}"?\n\nEle não vai mais conseguir entrar no painel.` +
+      (unico ? "\n\nEste é o ÚNICO login cadastrado. Você ainda poderá entrar usando a chave de admin direto, na tela de login." : "") +
+      "\n\nQuem já entrou com esse login continua com acesso naquele aparelho até clicar em \"Sair\".";
+    if(!confirm(aviso)) return;
+    const { serverUrl, chave } = credenciaisAdmin();
+    if(!serverUrl || !chave){ showToast("Preencha a URL do servidor e a Chave de admin primeiro."); return; }
+    try{
+      const res = await fetch(`${serverUrl}/admin/usuarios?usuario=${encodeURIComponent(usuario)}`, {
+        method: "DELETE",
+        headers: { "x-admin-key": chave },
+      });
+      const data = await res.json().catch(() => null);
+      if(!res.ok || !data || !data.ok){ showToast((data && data.error) || "Não foi possível excluir o login."); return; }
+    }catch(e){
+      showToast("Não foi possível contatar o servidor — verifique sua internet e a URL configurada.");
+      return;
+    }
+    showToast(`Login "${usuario}" excluído.`);
+    carregarAdminLogins();
+  }
+  document.getElementById("adminLoginsAtualizarBtn").addEventListener("click", () => carregarAdminLogins());
 
   /* ---------------------------- criptografia (mesma lógica do mit-license.js) --------------------------- */
   function strToB64url(str){
@@ -1188,6 +1354,7 @@
     tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === nome));
     tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `tab-${nome}`));
     try{ localStorage.setItem(TAB_STORAGE_KEY, nome); }catch(e){ /* ignora */ }
+    if(nome === 'devices' && painelLogadoAberto) carregarAdminLogins();   // atualiza a lista de logins ao abrir esta aba
   }
   tabButtons.forEach(btn => btn.addEventListener('click', () => ativarAba(btn.dataset.tab)));
   ativarAba(localStorage.getItem(TAB_STORAGE_KEY) || 'inicial');
@@ -1241,8 +1408,10 @@
       });
       document.body.appendChild(sairBtn);
     }
+    painelLogadoAberto = true;
     carregarTokensDoBanco();
     loadUsersList().catch(() => { /* sem servidor configurado ainda, tudo bem */ });
+    carregarAdminLogins();
   }
 
   gateSubmitBtn.addEventListener("click", async () => {
