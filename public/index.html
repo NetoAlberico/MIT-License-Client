@@ -480,23 +480,31 @@
     }
     if(!usuario || !senha){ showToast("Informe usuário e senha pro novo login."); return; }
     if(senha.length < 6){ showToast("A senha precisa ter pelo menos 6 caracteres."); return; }
+    // Rede e tela ficam em blocos SEPARADOS: antes, um erro ao preencher a tela (campo que não existe mais)
+    // caía no mesmo catch e aparecia como "Não foi possível contatar o servidor" — mesmo com o login já
+    // criado com sucesso no servidor.
+    let data = null;
     try{
       const res = await fetch(`${serverUrl}/admin/criar`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-key": chaveAtual },
         body: JSON.stringify({ usuario, senha }),
       });
-      const data = await res.json().catch(() => null);
-      if(!data || !data.ok){
-        showToast(data?.error || "Não foi possível criar o login.");
-        return;
-      }
-      document.getElementById("adminLoginUsuario").value = usuario;
-      document.getElementById("adminCriarSenha").value = "";
-      showToast(`Login "${usuario}" criado — já pode usar no campo "Entrar" acima, em qualquer aparelho.`);
+      data = await res.json().catch(() => null);
     }catch(e){
       showToast("Não foi possível contatar o servidor — verifique sua internet e a URL configurada.");
+      return;
     }
+    if(!data || !data.ok){
+      showToast(data?.error || "Não foi possível criar o login.");
+      return;
+    }
+    // Login criado. O campo de usuário da tela de login agora se chama "licGateUsuario"; se não existir, tudo bem.
+    const campoLogin = document.getElementById("licGateUsuario");
+    if(campoLogin) campoLogin.value = usuario;
+    const campoSenha = document.getElementById("adminCriarSenha");
+    if(campoSenha) campoSenha.value = "";
+    showToast(`Login "${usuario}" salvo — já pode usar na tela de login (ao abrir o painel), em qualquer aparelho.`);
   });
 
   /* ---------------------------- criptografia (mesma lógica do mit-license.js) --------------------------- */
@@ -821,7 +829,6 @@
           <td>${devicesLabel}</td>
           <td>
             <div class="row-actions">
-              <button class="btn small secondary" data-action="reset-user-password" data-username="${escapeHtml(u.username)}">Trocar senha</button>
               <button class="btn small secondary" data-action="reset-user-devices" data-username="${escapeHtml(u.username)}">Resetar dispositivos</button>
               <button class="btn small danger" data-action="revoke-user" data-username="${escapeHtml(u.username)}">Revogar</button>
             </div>
@@ -849,38 +856,6 @@
         showToast(`Conta de "${username}" revogada.`);
         loadUsersList();
       }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
-    }));
-    wrap.querySelectorAll('[data-action="reset-user-password"]').forEach(btn => btn.addEventListener('click', async () => {
-      const username = btn.dataset.username;
-      const digitada = prompt(`Nova senha para "${username}"\n\nDigite a senha que você quer usar (mínimo 6 caracteres), ou deixe em branco e confirme pra gerar uma aleatória automaticamente.`, '');
-      if(digitada === null) return; // clicou Cancelar — não faz nada
-      const senhaEscolhida = digitada.trim();
-      if(senhaEscolhida && senhaEscolhida.length < 6){ showToast('A senha precisa ter pelo menos 6 caracteres (ou deixe em branco pra gerar automática).'); return; }
-      if(!confirm(`Trocar a senha de "${username}"?\n\nA senha antiga para de funcionar na hora — a pessoa só consegue entrar de novo com a senha nova (o resto da conta, período/dispositivos, continua igual).`)) return;
-
-      const serverUrl = licenseServerUrl();
-      btn.disabled = true; btn.textContent = 'Trocando…';
-      try{
-        const res = await fetch(`${serverUrl}/users/reset-password`, {
-          method: 'POST',
-          headers: licenseServerHeaders(),
-          body: JSON.stringify({ username, password: senhaEscolhida }), // vazio = servidor gera uma aleatória
-        });
-        const data = await res.json();
-        if(!res.ok || !data.ok){ showToast(data.error || 'Não foi possível trocar a senha.'); return; }
-
-        // Reaproveita a mesma caixa de "credenciais novas" usada na criação
-        // de conta — é o mesmo momento de "copie agora, só aparece uma vez".
-        document.getElementById('accountCredsText').textContent = `Usuário: ${username}\nSenha: ${data.password}`;
-        document.getElementById('accountResultMeta').innerHTML = `
-          Senha trocada para <b>${escapeHtml(username)}</b> — o resto da conta (app, período, dispositivos) continua igual.<br>
-          <span style="color:var(--danger);">A senha só aparece esta vez — copie e envie agora.</span>
-        `;
-        document.getElementById('accountResult').classList.add('show');
-        document.getElementById('accountResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        showToast(`Senha de "${username}" trocada.`);
-      }catch(err){ showToast('Erro ao contatar o servidor de licenças.'); }
-      finally{ btn.disabled = false; btn.textContent = 'Trocar senha'; }
     }));
     wrap.querySelectorAll('[data-action="reset-user-devices"]').forEach(btn => btn.addEventListener('click', async () => {
       const username = btn.dataset.username;
