@@ -74,6 +74,12 @@
   .tab-panel.active{display:block;}
 
   .field{margin-bottom:16px;}
+  .apps-multi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:10px 12px;border:1px solid var(--line, #2c323c);border-radius:10px;background:rgba(255,255,255,.02);}
+  .app-chk{display:flex;align-items:center;gap:8px;font-size:14px;color:#e8ecf2;cursor:pointer;user-select:none;text-transform:none;letter-spacing:0;font-weight:500;margin:0;}
+  .app-chk input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;}
+  .app-chk--todos{grid-column:1 / -1;font-weight:700;border-bottom:1px solid var(--line, #2c323c);padding-bottom:6px;}
+  .apps-dica{display:block;margin-top:6px;font-size:12px;color:#b9c1cc;}
+
   .field label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:7px;}
   .field input[type=text], .field input[type=date], .field input[type=number], .field input[type=password], .field select{
     width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
@@ -324,16 +330,17 @@
         <input type="text" id="clientInput" placeholder="Nome do cliente ou identificação" />
       </div>
       <div class="field">
-        <label>App vinculado</label>
-        <select id="appSelect">
-          <option value="any">Qualquer app MIT</option>
-          <option value="midia">Mídia</option>
-          <option value="repertorio">Repertório</option>
-          <option value="cifras">Cifras</option>
-          <option value="vs">Vs</option>
-          <option value="escala">Escala</option>
-          <option value="cloud">Nuvem</option>
-        </select>
+        <label>Apps liberados</label>
+        <div id="appSelect" class="apps-multi" role="group" aria-label="Apps liberados">
+          <label class="app-chk app-chk--todos"><input type="checkbox" value="any" checked> <span>Qualquer app MIT</span></label>
+          <label class="app-chk"><input type="checkbox" value="midia"> <span>Mídia</span></label>
+          <label class="app-chk"><input type="checkbox" value="repertorio"> <span>Letras (Repertório)</span></label>
+          <label class="app-chk"><input type="checkbox" value="cifras"> <span>Cifras</span></label>
+          <label class="app-chk"><input type="checkbox" value="vs"> <span>MIT VS (Windows)</span></label>
+          <label class="app-chk"><input type="checkbox" value="escala"> <span>Escala</span></label>
+          <label class="app-chk"><input type="checkbox" value="cloud"> <span>Nuvem</span></label>
+        </div>
+        <small class="apps-dica">Marque um ou mais apps. "Qualquer app MIT" libera todos.</small>
       </div>
     </div>
 
@@ -388,16 +395,17 @@
         <input type="text" id="accClientInput" placeholder="Nome do cliente ou identificação" />
       </div>
       <div class="field">
-        <label>App vinculado</label>
-        <select id="accAppSelect">
-          <option value="any">Qualquer app MIT</option>
-          <option value="midia">Mídia</option>
-          <option value="repertorio">Repertório</option>
-          <option value="cifras">Cifras</option>
-          <option value="vs">Vs</option>
-          <option value="escala">Escala</option>
-          <option value="cloud">Nuvem</option>
-        </select>
+        <label>Apps liberados</label>
+        <div id="accAppSelect" class="apps-multi" role="group" aria-label="Apps liberados">
+          <label class="app-chk app-chk--todos"><input type="checkbox" value="any" checked> <span>Qualquer app MIT</span></label>
+          <label class="app-chk"><input type="checkbox" value="midia"> <span>Mídia</span></label>
+          <label class="app-chk"><input type="checkbox" value="repertorio"> <span>Letras (Repertório)</span></label>
+          <label class="app-chk"><input type="checkbox" value="cifras"> <span>Cifras</span></label>
+          <label class="app-chk"><input type="checkbox" value="vs"> <span>MIT VS (Windows)</span></label>
+          <label class="app-chk"><input type="checkbox" value="escala"> <span>Escala</span></label>
+          <label class="app-chk"><input type="checkbox" value="cloud"> <span>Nuvem</span></label>
+        </div>
+        <small class="apps-dica">Marque um ou mais apps. "Qualquer app MIT" libera todos.</small>
       </div>
     </div>
 
@@ -734,6 +742,31 @@
   }
 
   /* ------------------------------------- form de geração ------------------------------------- */
+
+  // ---- Apps liberados (caixinhas) — o .value continua funcionando como no <select>:
+  //      "any", um app ("cifras") ou uma LISTA separada por vírgula ("cifras,vs").
+  const ROTULO_APP = { any: 'Qualquer app MIT', midia: 'Mídia', repertorio: 'Letras', cifras: 'Cifras', vs: 'MIT VS', escala: 'Escala', cloud: 'Nuvem' };
+  function normalizarApps(v){
+    const lista = String(v || '').toLowerCase().split(/[,;+\s]+/).map(x => x.trim()).filter(x => /^[a-z0-9_-]+$/.test(x));
+    const unicos = [...new Set(lista)];
+    return unicos.includes('any') ? 'any' : unicos.join(',');
+  }
+  function rotuloApps(v){ return normalizarApps(v).split(',').filter(Boolean).map(a => ROTULO_APP[a] || a).join(' + ') || '—'; }
+  function ligarSeletorDeApps(el){
+    if(!el) return;
+    const caixas = () => [...el.querySelectorAll('input[type=checkbox]')];
+    el.addEventListener('change', (ev) => {
+      const alvo = ev.target; if(!alvo || alvo.type !== 'checkbox') return;
+      if(alvo.value === 'any' && alvo.checked) caixas().forEach(c => { if(c.value !== 'any') c.checked = false; });
+      if(alvo.value !== 'any' && alvo.checked) caixas().forEach(c => { if(c.value === 'any') c.checked = false; });
+    });
+    Object.defineProperty(el, 'value', {
+      get(){ return normalizarApps(caixas().filter(c => c.checked).map(c => c.value).join(',')); },
+      set(v){ const lista = normalizarApps(v).split(','); caixas().forEach(c => { c.checked = lista.includes(c.value); }); }
+    });
+  }
+  ligarSeletorDeApps(document.getElementById('appSelect'));
+  ligarSeletorDeApps(document.getElementById('accAppSelect'));
   const appSelect = document.getElementById('appSelect');
 
   let selectedType = 'Q';
@@ -776,6 +809,7 @@
     const cliente = document.getElementById('clientInput').value.trim();
     if(!cliente){ showToast('Informe o nome do cliente.'); return; }
     const appId = appSelect.value;
+    if(!appId){ showToast('Marque pelo menos um app.'); return; }
     const range = computeRange();
     if(!range){ showToast('Confira as datas do período.'); return; }
     if(range.end < range.start){ showToast('A data final precisa ser depois do início.'); return; }
@@ -800,7 +834,7 @@
 
     document.getElementById('tokenText').textContent = token;
     document.getElementById('resultMeta').innerHTML = `
-      <b>${escapeHtml(cliente)}</b> · app: <b>${escapeHtml(appId)}</b> · ${TYPE_LABEL[selectedType]} · até ${maxDevices} dispositivo${maxDevices===1?'':'s'}<br>
+      <b>${escapeHtml(cliente)}</b> · app: <b>${escapeHtml(rotuloApps(appId))}</b> · ${TYPE_LABEL[selectedType]} · até ${maxDevices} dispositivo${maxDevices===1?'':'s'}<br>
       Vigência: <b>${fmtBR(range.start)}</b> até <b>${fmtBR(range.end)}</b>
     `;
     document.getElementById('result').classList.add('show');
@@ -936,6 +970,7 @@
     const cliente = document.getElementById('accClientInput').value.trim();
     if(!cliente){ showToast('Informe o nome do cliente.'); return; }
     const appId = document.getElementById('accAppSelect').value;
+    if(!appId){ showToast('Marque pelo menos um app.'); return; }
     const range = computeAccRange();
     if(!range){ showToast('Confira as datas do período.'); return; }
     if(range.end < range.start){ showToast('A data final precisa ser depois do início.'); return; }
@@ -956,7 +991,7 @@
       const credsMsg = `Usuário: ${data.username}\nSenha: ${data.password}`;
       document.getElementById('accountCredsText').textContent = credsMsg;
       document.getElementById('accountResultMeta').innerHTML = `
-        <b>${escapeHtml(cliente)}</b> · app: <b>${escapeHtml(appId)}</b> · ${TYPE_LABEL[accSelectedType]} · até ${maxDevices} dispositivo${maxDevices===1?'':'s'}<br>
+        <b>${escapeHtml(cliente)}</b> · app: <b>${escapeHtml(rotuloApps(appId))}</b> · ${TYPE_LABEL[accSelectedType]} · até ${maxDevices} dispositivo${maxDevices===1?'':'s'}<br>
         Vigência: <b>${fmtBR(range.start)}</b> até <b>${fmtBR(range.end)}</b><br>
         <span style="color:var(--danger);">A senha só aparece esta vez — copie e envie agora.</span>
       `;
@@ -1017,7 +1052,7 @@
         <tr>
           <td>${escapeHtml(u.cliente)}</td>
           <td>${escapeHtml(u.username)}</td>
-          <td>${escapeHtml(u.appId)}</td>
+          <td>${escapeHtml(rotuloApps(u.appId))}</td>
           <td>${fmtBR(u.start)} – ${fmtBR(u.end)}</td>
           <td><span class="badge ${u.active===false ? 'expired' : st.state}">${u.active===false ? 'Revogada' : st.label}</span></td>
           <td>${devicesLabel}</td>
@@ -1181,7 +1216,7 @@
             method: 'POST',
             headers: licenseServerHeaders(),
             body: JSON.stringify({
-              cliente: u.cliente, appId: u.appId, type: 'P',
+              cliente: u.cliente, appId: normalizarApps(u.appId), type: 'P',
               start: u.start, end: u.end, maxDevices: u.maxDevices || 1,
             }),
           });
@@ -1234,7 +1269,7 @@
       return `
         <tr>
           <td>${escapeHtml(entry.cliente)}</td>
-          <td>${escapeHtml(entry.appId)}</td>
+          <td>${escapeHtml(rotuloApps(entry.appId))}</td>
           <td>${TYPE_LABEL[entry.type] || entry.type}</td>
           <td>${fmtBR(entry.start)} – ${fmtBR(entry.end)}</td>
           <td>${statusBadge}</td>
