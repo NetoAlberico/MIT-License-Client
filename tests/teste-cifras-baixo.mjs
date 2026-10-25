@@ -14,7 +14,7 @@ W.eval(`var T = window.__cifrasTeste, songs = T.songs, state = T.state; songs = 
   { t: "C", text: "[Intro] A  E/G#  D9  E" },
   { t: "L", text: "  D9         E" }, { t: "L", text: "E enche-me até que em mim" },
   { t: "L", text: "   C#m7        F#m7/E" }, { t: "L", text: "Se ache só a Ti" },
-  { t: "L", text: "       ( Cm  Cm7(9) )" }, { t: "L", text: "Pelo Senhor marchamos sim" } ] });
+  { t: "L", text: "       ( Cm  Cm7(9) )" }, { t: "L", text: "Pelo Senhor marchamos sim" }, { t: "L", text: "[Primeira Parte]" } ] });
   state.songIndex = 0; state.semitoneShift = 0; renderSongsheet();`);
 try { W.eval("renderSongsheet()"); } catch (e) { console.log("ERRO NO RENDER:", String(e).slice(0, 300)); }
 console.log("filhos:", d.querySelectorAll("#cifraBody > *").length, "erros:", erros.slice(1, 4));
@@ -23,6 +23,7 @@ const acordes = (i) => linhas()[i].texto;
 let L = linhas();
 check(L[1].classe.includes("chord-line") && L[3].classe.includes("chord-line") && L[5].classe.includes("chord-line"), "linhas de acorde salvas como letra (dado antigo) viram ACORDES ao abrir (coloridas)" + (erros.length ? " — " + erros[0] : ""));
 check(L[2].classe.includes("lyric-line") && L[4].classe.includes("lyric-line"), "as linhas de letra continuam letra");
+check(W.eval("window.__cifrasTeste.songs[0].lines[7].t") === "S" && W.eval("window.__cifrasTeste.songs[0].lines[7].text") === "Primeira Parte", "\"[Primeira Parte]\" sozinho na linha vira TÍTULO de seção");
 check(W.eval("window.__cifrasTeste.songs[0].lines[1].t") === "C", "a correção fica SALVA na música (não precisa colar de novo)");
 W.eval("state.semitoneShift = 2; renderSongsheet();");
 check(acordes(0).includes("B") && acordes(1).includes("E9") && acordes(1).includes("F#") && acordes(3).includes("D#m7") && acordes(5).includes("Dm"), "mudar o tom (+2): TODAS as linhas mudam, não só a primeira (" + acordes(1).trim() + " | " + acordes(3).trim() + ")");
